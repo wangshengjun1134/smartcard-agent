@@ -72,7 +72,7 @@ export function GroupSelectDialog({
                 }
               }}
             >
-              <span className="text-lg">{group.icon}</span>
+              <i className={`${group.icon} text-lg text-[#333]`}></i>
               <span>{group.name}</span>
               {group.isPinned && (
                 <svg className="w-3.5 h-3.5 text-[#4b6ef3] ml-auto" fill="currentColor" viewBox="0 0 24 24" stroke="currentColor">

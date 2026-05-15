@@ -76,7 +76,7 @@ export function SessionList({
 
               {/* 分组图标 */}
               {group && (
-                <span className="text-sm">{group.icon}</span>
+                <i className={`${group.icon} text-sm text-[#333]`}></i>
               )}
 
               {/* 标题 */}

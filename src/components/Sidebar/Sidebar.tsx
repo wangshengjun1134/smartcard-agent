@@ -39,7 +39,8 @@ export function Sidebar({
   onPinGroup,
 }: SidebarProps) {
   // 分页状态
-  const [displayLimit, setDisplayLimit] = useState(10);
+  const [displayLimit, setDisplayLimit] = useState(5);
+  const isExpanded = displayLimit > 5;
 
   // 对话框状态
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -235,14 +236,18 @@ export function Sidebar({
     setGroupSelectState({ isOpen: false, sessionId: null, currentGroupId: undefined });
   };
 
-  // 加载更多分组
-  const handleLoadMore = () => {
-    setDisplayLimit(prev => prev + 10);
+  // 展开/收回分组
+  const handleToggleExpand = () => {
+    if (isExpanded) {
+      setDisplayLimit(5);
+    } else {
+      setDisplayLimit(groups.length);
+    }
   };
 
   // 显示的分组列表
   const displayedGroups = groups.slice(0, displayLimit);
-  const hasMoreGroups = groups.length > displayLimit;
+  const canExpand = groups.length > 5;
 
   return (
     <div className="sidebar-container w-[260px] h-full flex flex-col p-4 flex-shrink-0">
@@ -276,9 +281,19 @@ export function Sidebar({
         </button>
       </div>
 
-      {/* 对话分组 */}
-      <div className="mb-5">
-        <div className="text-xs text-[#999] mb-2 pl-1">对话分组</div>
+      {/* 对话分组 + 最近对话 滚动区域 */}
+      <div className="flex-1 overflow-y-auto">
+        {/* 对话分组 */}
+        <div className="mb-3">
+          <div className="text-xs text-[#999] mb-2 pl-1">对话分组</div>
+
+        {/* 新分组按钮 */}
+        <div className="menu-item cursor-pointer" onClick={() => setShowCreateGroup(true)}>
+          <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          新分组
+        </div>
 
         {/* 分组列表 */}
         {displayedGroups.map((group) => {
@@ -288,9 +303,9 @@ export function Sidebar({
           return (
             <div
               key={group.id}
-              className={`menu-item group-item ${group.isPinned ? 'bg-[#f7f8fa]' : ''}`}
+              className={`menu-item group relative ${group.isPinned ? 'bg-[#f7f8fa] hover:bg-[#ececee]' : ''}`}
             >
-              <span className="text-lg">{group.icon}</span>
+              <i className={`${group.icon} text-lg text-[#333]`}></i>
 
               {isEditing ? (
                 <input
@@ -324,7 +339,7 @@ export function Sidebar({
 
               {/* 三个点按钮 */}
               <button
-                className="opacity-0 hover:bg-[#e5e7eb] rounded p-1 transition-opacity"
+                className="opacity-0 group-hover:opacity-100 hover:bg-[#e5e7eb] rounded p-1 transition-opacity"
                 onClick={(e) => handleGroupMenuOpen(e, group, groupSessions)}
               >
                 <svg className="w-4 h-4 text-[#555]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -335,40 +350,44 @@ export function Sidebar({
           );
         })}
 
-        {/* 更多按钮 */}
-        {hasMoreGroups && (
+        {/* 更多/收回按钮 */}
+        {canExpand && (
           <button
-            className="menu-item text-[#4b6ef3] hover:bg-[#f7f8fa]"
-            onClick={handleLoadMore}
+            className="menu-item cursor-pointer"
+            onClick={handleToggleExpand}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
-            </svg>
-            更多 ({groups.length - displayLimit})
+            {isExpanded ? (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+                收回
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                更多 ({groups.length - 5})
+              </>
+            )}
           </button>
         )}
-
-        {/* 新分组按钮 */}
-        <div className="menu-item cursor-pointer" onClick={() => setShowCreateGroup(true)}>
-          <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          新分组
-        </div>
       </div>
 
       {/* 最近对话 */}
-      <div className="flex-1 overflow-y-auto mt-2">
-        <div className="text-xs text-[#999] mb-2 pl-1">最近对话</div>
-        <SessionList
-          sessions={sessions}
-          currentSessionId={currentSessionId}
-          onSelect={onSelectSession}
-          onUpdateTitle={onUpdateSessionTitle}
-          groups={groups}
-          onMenuOpen={handleConversationMenuOpen}
-          editingSessionId={conversationMenuState.editingName ? conversationMenuState.sessionId : null}
-        />
+        <div>
+          <div className="text-xs text-[#999] mb-2 pl-1">最近对话</div>
+          <SessionList
+            sessions={sessions}
+            currentSessionId={currentSessionId}
+            onSelect={onSelectSession}
+            onUpdateTitle={onUpdateSessionTitle}
+            groups={groups}
+            onMenuOpen={handleConversationMenuOpen}
+            editingSessionId={conversationMenuState.editingName ? conversationMenuState.sessionId : null}
+          />
+        </div>
       </div>
 
       {/* 底部用户信息 */}

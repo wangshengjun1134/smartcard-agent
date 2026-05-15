@@ -97,6 +97,10 @@
     position: relative;
   }
 
+  .group-item:hover {
+    background-color: var(--color-bg-hover);
+  }
+
   .group-item:hover button {
     opacity: 1;
   }

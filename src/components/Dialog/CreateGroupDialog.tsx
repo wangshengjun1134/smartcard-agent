@@ -6,18 +6,42 @@ interface CreateGroupDialogProps {
   onConfirm: (name: string, icon: string) => void;
 }
 
-// 预设图标选项
+// Font Awesome 图标选项
 const presetIcons = [
-  { icon: '🧳', label: '旅行' },
-  { icon: '💎', label: '投资' },
-  { icon: '📋', label: '作业' },
-  { icon: '❤️', label: '健康' },
-  { icon: '💻', label: '代码' },
+  'fa-regular fa-face-smile',
+  'fa-regular fa-star',
+  'fa-solid fa-bolt',
+  'fa-solid fa-helmet-safety',
+  'fa-regular fa-heart',
+  'fa-regular fa-clock',
+  'fa-regular fa-user',
+  'fa-regular fa-image',
+  'fa-regular fa-circle-dot',
+  'fa-regular fa-folder',
+  'fa-solid fa-sd-card',
+  'fa-regular fa-mobile-screen',
+  'fa-regular fa-location-dot',
+  'fa-regular fa-fire',
+  'fa-regular fa-lightbulb',
+  'fa-regular fa-bookmark',
+  'fa-regular fa-file-lines',
+  'fa-regular fa-heart-pulse',
+  'fa-regular fa-comments',
+  'fa-solid fa-share-nodes',
+  'fa-solid fa-users',
+  'fa-regular fa-headphones',
+  'fa-regular fa-hand-pointer',
+  'fa-regular fa-cake-candles',
+  'fa-regular fa-shirt',
+  'fa-regular fa-magnifying-glass',
+  'fa-regular fa-cube',
+  'fa-regular fa-address-card',
+  'fa-regular fa-house',
 ];
 
 export function CreateGroupDialog({ isOpen, onClose, onConfirm }: CreateGroupDialogProps) {
   const [name, setName] = useState('');
-  const [selectedIcon, setSelectedIcon] = useState('🧳');
+  const [selectedIcon, setSelectedIcon] = useState('fa-regular fa-face-smile');
   const inputRef = useRef<HTMLInputElement>(null);
 
   // 打开时自动聚焦输入框
@@ -42,22 +66,21 @@ export function CreateGroupDialog({ isOpen, onClose, onConfirm }: CreateGroupDia
 
   const handleConfirm = () => {
     if (name.trim()) {
-      console.log('CreateGroupDialog: onConfirm called with', name.trim(), selectedIcon);
       onConfirm(name.trim(), selectedIcon);
       setName('');
-      setSelectedIcon('🧳');
+      setSelectedIcon('fa-regular fa-face-smile');
       onClose();
     }
   };
 
   const handleCancel = () => {
     setName('');
-    setSelectedIcon('🧳');
+    setSelectedIcon('fa-regular fa-face-smile');
     onClose();
   };
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
       onClick={(e) => {
         if (e.target === e.currentTarget) handleCancel();
@@ -67,7 +90,7 @@ export function CreateGroupDialog({ isOpen, onClose, onConfirm }: CreateGroupDia
         {/* 头部 */}
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-[#1a1a1a]">创建分组</h2>
-          <span 
+          <span
             className="text-xl text-[#888] cursor-pointer hover:text-[#333] transition-colors"
             onClick={handleCancel}
           >
@@ -77,12 +100,12 @@ export function CreateGroupDialog({ isOpen, onClose, onConfirm }: CreateGroupDia
 
         {/* 描述 */}
         <p className="text-sm text-[#666] leading-relaxed mb-5">
-          分组功能可将对话集中归类管理，并支持自定义指示，让对话更加自然有序。
+          分组功能可将对话集中归类管理，并支持自定义图标，让对话更加自然有序。
         </p>
 
         {/* 输入框 */}
         <div className="flex items-center border border-[#1a1a1a] rounded-lg px-3 py-2 mb-5 transition-all focus-within:border-[#4b6ef3] focus-within:shadow-[0_0_0_2px_rgba(75,110,243,0.1)]">
-          <span className="text-lg mr-2">{selectedIcon}</span>
+          <i className={`${selectedIcon} text-lg mr-2 text-[#333]`}></i>
           <input
             ref={inputRef}
             type="text"
@@ -93,22 +116,24 @@ export function CreateGroupDialog({ isOpen, onClose, onConfirm }: CreateGroupDia
           />
         </div>
 
-        {/* 图标标签 */}
-        <div className="flex flex-wrap gap-2.5 mb-8">
-          {presetIcons.map((item) => (
-            <div
-              key={item.icon}
-              className={`flex items-center gap-1.5 bg-white border rounded-md px-3 py-1.5 text-sm cursor-pointer transition-all ${
-                selectedIcon === item.icon
-                  ? 'border-[#4b6ef3] bg-[#f7f8fa]'
-                  : 'border-[#e5e7eb] hover:bg-[#f7f8fa] hover:border-[#d1d5db]'
-              }`}
-              onClick={() => setSelectedIcon(item.icon)}
-            >
-              <span>{item.icon}</span>
-              <span className="text-[#333]">{item.label}</span>
-            </div>
-          ))}
+        {/* 图标网格 */}
+        <div className="mb-6">
+          <div className="text-xs text-[#999] mb-2">选择图标</div>
+          <div className="grid grid-cols-8 gap-1 bg-[#f9f9fb] rounded-lg p-3 border border-[#eaeaea]">
+            {presetIcons.map((iconClass) => (
+              <div
+                key={iconClass}
+                className={`flex items-center justify-center w-[40px] h-[40px] cursor-pointer rounded-md transition-all ${
+                  selectedIcon === iconClass
+                    ? 'bg-[#eef0f5] border border-[#4b6ef3]'
+                    : 'hover:bg-[#eef0f5]'
+                }`}
+                onClick={() => setSelectedIcon(iconClass)}
+              >
+                <i className={`${iconClass} text-xl text-[#333]`}></i>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* 底部按钮 */}
