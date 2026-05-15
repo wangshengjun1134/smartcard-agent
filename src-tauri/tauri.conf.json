@@ -13,12 +13,13 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "SmartcardAgent",
+        "title": "",
         "width": 1040,
         "height": 800,
         "resizable": true,
         "fullscreen": false,
-        "center": true
+        "center": true,
+        "decorations": true
       }
     ],
     "security": {

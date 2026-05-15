@@ -20,7 +20,7 @@ export function Sidebar({
     <div className="sidebar-container w-[260px] h-full flex flex-col p-4 flex-shrink-0">
       {/* 顶部：Logo 和图标 */}
       <div className="flex items-center justify-between mb-4">
-        <div className="text-xl font-semibold text-[#1a1a1a]">千问</div>
+        <div className="text-base font-semibold text-[#1a1a1a]">SmartCardAgent</div>
         <div className="flex items-center gap-3">
           <button className="circle-btn w-[18px] h-[18px]" aria-label="搜索">
             <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -46,22 +46,6 @@ export function Sidebar({
         </svg>
       </button>
 
-      {/* 菜单分组 */}
-      <div className="mb-5">
-        <div className="menu-item">
-          <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-          </svg>
-          我的空间
-        </div>
-        <div className="menu-item">
-          <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          智能体
-        </div>
-      </div>
-
       {/* 对话分组 */}
       <div className="mb-5">
         <div className="text-xs text-[#999] mb-2 pl-1">对话分组</div>
@@ -70,24 +54,6 @@ export function Sidebar({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
           新分组
-        </div>
-        <div className="menu-item">
-          <svg className="w-[18px] h-[18px] text-[#5870f6]" fill="currentColor" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="4" />
-          </svg>
-          Idea
-        </div>
-        <div className="menu-item">
-          <svg className="w-[18px] h-[18px] text-[#5870f6]" fill="currentColor" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="4" />
-          </svg>
-          AGENT
-        </div>
-        <div className="menu-item">
-          <svg className="w-[18px] h-[18px] text-[#5870f6]" fill="currentColor" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="4" />
-          </svg>
-          SIM
         </div>
       </div>
 
