@@ -252,10 +252,19 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--color-border-light);
+    background: transparent;
     border-radius: 4px;
+    transition: background 0.2s;
   }
   ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-send-disabled);
+  }
+
+  /* Sidebar 悬停时显示滚动条 */
+  .sidebar-container:hover ::-webkit-scrollbar-thumb {
+    background: var(--color-border-light);
+  }
+  .sidebar-container:hover ::-webkit-scrollbar-thumb:hover {
     background: var(--color-send-disabled);
   }
 }
