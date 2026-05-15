@@ -11,6 +11,7 @@ React 前端架构规格。
 #### Scenario: 验证目录结构
 - **WHEN** 检查项目根目录
 - **THEN** 存在 `src/` 目录，包含 `components/`、`pages/`、`hooks/`、`utils/` 子目录
+- **AND** `components/` 目录包含 `Sidebar/`、`Chat/`、`Dialog/` 子目录用于分组和对话操作交互
 
 ### Requirement: TypeScript 配置
 

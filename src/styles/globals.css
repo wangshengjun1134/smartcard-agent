@@ -92,8 +92,20 @@
     background-color: var(--color-bg-hover);
   }
 
+  /* 分组项 */
+  .group-item {
+    position: relative;
+  }
+
+  .group-item:hover button {
+    opacity: 1;
+  }
+
   /* 会话项 */
   .session-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 8px 6px;
     font-size: 13px;
     color: var(--color-text-secondary);

@@ -7,13 +7,21 @@ import { ChatInput } from './components/Chat/ChatInput';
 function App() {
   const {
     sessions,
+    groups,
     currentSession,
     currentSessionId,
     isLoading,
     createSession,
     switchSession,
     deleteSession,
+    updateSessionTitle,
     addMessage,
+    createGroup,
+    updateGroup,
+    deleteGroup,
+    pinGroup,
+    pinSession,
+    moveSessionToGroup,
   } = useSessions();
 
   // 发送消息处理
@@ -51,10 +59,18 @@ function App() {
       sidebar={
         <Sidebar
           sessions={sessions}
+          groups={groups}
           currentSessionId={currentSessionId}
           onNewSession={createSession}
           onSelectSession={switchSession}
           onDeleteSession={deleteSession}
+          onUpdateSessionTitle={updateSessionTitle}
+          onPinSession={pinSession}
+          onMoveSessionToGroup={moveSessionToGroup}
+          onCreateGroup={createGroup}
+          onUpdateGroup={updateGroup}
+          onDeleteGroup={deleteGroup}
+          onPinGroup={pinGroup}
         />
       }
       main={

@@ -1,7 +1,8 @@
-import { Session } from '../types/session';
+import { Session, Group } from '../types/session';
 
 const STORAGE_KEY = 'smartcard-agent-sessions';
 const CURRENT_SESSION_KEY = 'smartcard-agent-current-session';
+const GROUPS_KEY = 'smartcard-agent-groups';
 
 export function loadSessions(): Session[] {
   try {
@@ -44,6 +45,24 @@ export function saveCurrentSessionId(id: string | null): void {
 
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+export function loadGroups(): Group[] {
+  try {
+    const data = localStorage.getItem(GROUPS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error('Failed to load groups:', error);
+    return [];
+  }
+}
+
+export function saveGroups(groups: Group[]): void {
+  try {
+    localStorage.setItem(GROUPS_KEY, JSON.stringify(groups));
+  } catch (error) {
+    console.error('Failed to save groups:', error);
+  }
 }
 
 export function formatRelativeTime(timestamp: number): string {

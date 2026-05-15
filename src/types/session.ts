@@ -11,6 +11,16 @@ export interface Session {
   createdAt: number;
   updatedAt: number;
   messages: Message[];
+  groupId?: string;
+  isPinned?: boolean;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  icon: string;
+  createdAt: number;
+  isPinned?: boolean;
 }
 
 export type SessionState = {
