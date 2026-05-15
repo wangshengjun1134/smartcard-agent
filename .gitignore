@@ -76,7 +76,10 @@ out/
 *.apk
 
 # OpenSpec
-openspec/changes/  
+openspec/changes/
+
+# Qwen Code local skills
+.qwen/skills/  
 # Build artifacts 
 python-service/*.spec 
 src-tauri/gen/ 
