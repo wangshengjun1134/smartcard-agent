@@ -74,3 +74,6 @@ out/
 *.air
 *.ipa
 *.apk
+
+# OpenSpec
+openspec/changes/
