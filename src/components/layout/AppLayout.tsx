@@ -1,4 +1,5 @@
 import { useState, useEffect, ReactNode } from 'react';
+import { TitleBar } from './TitleBar';
 
 interface AppLayoutProps {
   sidebar: ReactNode;
@@ -29,26 +30,32 @@ export function AppLayout({ sidebar, main, sidebarOpen: externalSidebarOpen, onT
   }, [externalSidebarOpen]);
 
   return (
-    <div className="flex h-screen w-full bg-[#f7f7f9] dark:bg-[#111112] overflow-hidden">
-      {/* 侧边栏 */}
-      {sidebarOpen && (
-        <div className={`${isMobile ? 'absolute z-20 h-full' : 'relative'}`}>
-          {sidebar}
+    <div className="flex flex-col h-screen w-full bg-[#f7f7f9] dark:bg-[#111112] overflow-hidden">
+      {/* 自定义标题栏 */}
+      <TitleBar />
+
+      {/* 主内容区域 */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* 侧边栏 */}
+        {sidebarOpen && (
+          <div className={`${isMobile ? 'absolute z-20 h-full' : 'relative'}`}>
+            {sidebar}
+          </div>
+        )}
+
+        {/* 移动端遮罩层 */}
+        {isMobile && sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/30 z-10"
+            onClick={toggleSidebar}
+            aria-hidden="true"
+          />
+        )}
+
+        {/* 主内容区 - 圆角设计 */}
+        <div className="flex-1 flex flex-col h-full m-2 rounded-xl overflow-hidden bg-white dark:bg-[#222222] shadow-sm">
+          {main}
         </div>
-      )}
-
-      {/* 移动端遮罩层 */}
-      {isMobile && sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/30 z-10"
-          onClick={toggleSidebar}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* 主内容区 - 圆角设计 */}
-      <div className="flex-1 flex flex-col h-full m-2 rounded-xl overflow-hidden bg-white dark:bg-[#222222] shadow-sm">
-        {main}
       </div>
     </div>
   );
