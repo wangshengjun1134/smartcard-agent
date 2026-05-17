@@ -784,3 +784,246 @@
 .dark .chunk-position {
   color: #808080 !important;
 }
+
+/* 添加知识抽屉样式 */
+
+/* 添加知识抽屉 - 基础样式，不包含 transform */
+.add-knowledge-drawer {
+  position: fixed !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 400px !important;
+  height: 100vh !important;
+  background: #ffffff;
+  border-left: 1px solid #ececee;
+  transition: transform 0.3s ease;
+  z-index: 100 !important;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 抽屉打开状态 */
+.add-knowledge-drawer.translate-x-0 {
+  transform: translateX(0) !important;
+}
+
+/* 抽屉关闭状态 */
+.add-knowledge-drawer.translate-x-full {
+  transform: translateX(100%) !important;
+}
+
+/* 文件上传区域 */
+.upload-zone {
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.upload-zone:hover {
+  border-color: #4b6ef3;
+  background-color: rgba(75, 110, 243, 0.05);
+}
+
+.upload-zone.drag-over {
+  border-color: #4b6ef3;
+  background-color: rgba(75, 110, 243, 0.1);
+}
+
+/* 已选文件信息 */
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(75, 110, 243, 0.05);
+  border-radius: 8px;
+}
+
+/* 表单样式 */
+.knowledge-form .form-section-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4a4a4a;
+  margin-bottom: 12px;
+}
+
+.knowledge-form .form-label {
+  display: block;
+  font-size: 13px;
+  color: #4a4a4a;
+  margin-bottom: 6px;
+}
+
+.knowledge-form .form-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ececee;
+  border-radius: 8px;
+  font-size: 13px;
+  background: #ffffff;
+  color: #1a1a1a;
+  transition: border-color 0.2s;
+}
+
+.knowledge-form .form-input:focus {
+  border-color: #4b6ef3;
+  outline: none;
+}
+
+.knowledge-form .form-hint {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+
+.knowledge-form .form-error {
+  font-size: 12px;
+  color: #e74c3c;
+  margin-top: 4px;
+}
+
+/* 标签输入样式 */
+.tag-input-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #ececee;
+  border-radius: 8px;
+  min-height: 40px;
+  cursor: text;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #f7f8fa;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #1a1a1a;
+}
+
+.tag-input {
+  flex: 1;
+  min-width: 80px;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  background: transparent;
+  color: #1a1a1a;
+}
+
+/* 深色模式 - 添加知识抽屉 */
+.dark .add-knowledge-drawer {
+  background: #222222 !important;
+  border-left-color: #333333 !important;
+}
+
+.dark .upload-zone {
+  border-color: #333333 !important;
+}
+
+.dark .upload-zone:hover {
+  background-color: rgba(75, 110, 243, 0.1) !important;
+}
+
+.dark .upload-zone.drag-over {
+  background-color: rgba(75, 110, 243, 0.15) !important;
+}
+
+.dark .upload-zone.has-file {
+  border-color: #4b6ef3 !important;
+  background-color: rgba(75, 110, 243, 0.1) !important;
+}
+
+.dark .file-info {
+  background: rgba(75, 110, 243, 0.1) !important;
+}
+
+.dark .knowledge-form .form-section-title {
+  color: #b3b3b3 !important;
+}
+
+.dark .knowledge-form .form-label {
+  color: #b3b3b3 !important;
+}
+
+.dark .knowledge-form .form-input {
+  background: #222222 !important;
+  border-color: #333333 !important;
+  color: #ffffff !important;
+}
+
+.dark .knowledge-form .form-input:focus {
+  border-color: #4b6ef3 !important;
+}
+
+.dark .knowledge-form .form-hint {
+  color: #808080 !important;
+}
+
+.dark .tag-input-container {
+  border-color: #333333 !important;
+}
+
+.dark .tag-chip {
+  background: #333333 !important;
+  color: #ffffff !important;
+}
+
+.dark .tag-input {
+  color: #ffffff !important;
+}
+
+.dark .tag-input::placeholder {
+  color: #808080 !important;
+}
+
+.dark .add-tag-btn {
+  background: rgba(75, 110, 243, 0.2) !important;
+  color: #4b6ef3 !important;
+}
+
+.dark .add-tag-btn:hover {
+  background: rgba(75, 110, 243, 0.3) !important;
+}
+
+.dark .clear-btn {
+  background: #333333 !important;
+  color: #808080 !important;
+}
+
+.dark .clear-btn:hover {
+  background: #404040 !important;
+}
+
+/* 深色模式 - 抽屉底部 */
+.dark .drawer-footer {
+  border-top-color: #333333 !important;
+  background: #222222 !important;
+}
+
+.dark .btn-cancel {
+  border-color: #333333 !important;
+  color: #b3b3b3 !important;
+}
+
+.dark .btn-cancel:hover {
+  background: #333333 !important;
+}
+
+.dark .btn-confirm {
+  background: #4b6ef3 !important;
+}
+
+.dark .btn-confirm:hover {
+  background: #3a5bd9 !important;
+}
+
+.dark .btn-confirm:disabled {
+  background: #404040 !important;
+}

@@ -4,13 +4,14 @@ import { ViewToggleButton } from './ViewToggleButton';
 interface KnowledgeBaseHeaderProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  onAddClick: () => void;
 }
 
 /**
  * 知识库页面顶部栏组件
  * 包含视图切换按钮和添加文件按钮
  */
-export function KnowledgeBaseHeader({ viewMode, onViewModeChange }: KnowledgeBaseHeaderProps) {
+export function KnowledgeBaseHeader({ viewMode, onViewModeChange, onAddClick }: KnowledgeBaseHeaderProps) {
   return (
     <header className="flex items-center justify-between px-6 h-[45px] bg-white dark:bg-[#222222] border-b border-[#ececee] dark:border-[#333333] flex-shrink-0">
       {/* 左侧：标题 */}
@@ -27,6 +28,7 @@ export function KnowledgeBaseHeader({ viewMode, onViewModeChange }: KnowledgeBas
 
         {/* 添加文件按钮 */}
         <button
+          onClick={onAddClick}
           className="circle-btn w-[28px] h-[28px] bg-[#4b6ef3]/10 text-[#4b6ef3] hover:bg-[#4b6ef3]/20 dark:bg-[#4b6ef3]/20 dark:text-[#4b6ef3] dark:hover:bg-[#4b6ef3]/30"
           title="添加知识"
           aria-label="添加知识"

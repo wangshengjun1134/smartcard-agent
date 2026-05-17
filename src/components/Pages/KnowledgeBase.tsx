@@ -1,10 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { ViewMode, FileNode } from '../../types/file';
+import { KnowledgeFormData } from '../../types/knowledge';
 import { useFileStructure } from '../../hooks/useFileStructure';
+import { mockUploadKnowledge } from '../../hooks/useFileUpload';
 import { KnowledgeBaseHeader } from '../KnowledgeBase/KnowledgeBaseHeader';
 import { FileGridView } from '../KnowledgeBase/FileGridView';
 import { FileTreeView } from '../KnowledgeBase/FileTreeView';
 import { FileDetailDrawer } from '../KnowledgeBase/FileDetailDrawer';
+import { AddKnowledgeDrawer } from '../KnowledgeBase/AddKnowledgeDrawer';
 
 /**
  * 知识库页面主组件
@@ -21,8 +24,11 @@ export function KnowledgeBase() {
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // 添加知识抽屉状态
+  const [addDrawerOpen, setAddDrawerOpen] = useState(false);
+
   // 获取文件结构数据
-  const { fileStructure, loading, error } = useFileStructure();
+  const { fileStructure, loading, error, refresh } = useFileStructure();
 
   // 根据当前路径获取当前显示的文件列表
   const currentFiles = useMemo(() => {
@@ -114,101 +120,136 @@ export function KnowledgeBase() {
     }
   };
 
+  // 打开添加知识抽屉
+  const handleAddClick = useCallback(() => {
+    setAddDrawerOpen(true);
+  }, []);
+
+  // 关闭添加知识抽屉
+  const handleCloseAddDrawer = useCallback(() => {
+    setAddDrawerOpen(false);
+  }, []);
+
+  // 处理知识上传
+  const handleKnowledgeSubmit = useCallback(
+    async (file: File, data: KnowledgeFormData) => {
+      try {
+        await mockUploadKnowledge(file, data);
+        // 上传成功后刷新文件列表
+        refresh();
+      } catch (error) {
+        console.error('Upload failed:', error);
+        throw error;
+      }
+    },
+    [refresh]
+  );
+
   return (
-    <div className="flex-1 flex flex-col min-h-0">
-      {/* 顶部栏 */}
-      <KnowledgeBaseHeader
-        viewMode={viewMode}
-        onViewModeChange={handleViewModeChange}
-      />
+    <>
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* 顶部栏 */}
+        <KnowledgeBaseHeader
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
+          onAddClick={handleAddClick}
+        />
 
-      {/* 内容区域 */}
-      <div className="flex-1 overflow-y-auto">
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-[#999] dark:text-[#808080]">加载中...</div>
-          </div>
-        ) : error ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-[#ff4d4f]">加载失败: {error.message}</div>
-          </div>
-        ) : fileStructure.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full">
-            <div className="text-[#1a1a1a] dark:text-white text-lg mb-2">
-              知识库为空
+        {/* 内容区域 */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-[#999] dark:text-[#808080]">加载中...</div>
             </div>
-            <div className="text-[#999] dark:text-[#808080] text-sm">
-              点击右上角 + 添加知识文档
+          ) : error ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-[#ff4d4f]">加载失败: {error.message}</div>
             </div>
-          </div>
-        ) : (
-          <>
-            {/* 面包屑导航 (仅图标视图显示) */}
-            {viewMode === 'icon' && currentPath && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-[#f7f8fa] dark:bg-[#333333] border-b border-[#ececee] dark:border-[#333333]">
-                {/* 返回按钮 */}
-                <button
-                  className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[#ececee] dark:hover:bg-[#404040] text-[#4a4a4a] dark:text-[#b3b3b3] text-sm"
-                  onClick={handleGoBack}
-                  aria-label="返回上级"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  返回
-                </button>
-
-                {/* 分隔线 */}
-                <div className="w-px h-4 bg-[#ececee] dark:bg-[#404040]" />
-
-                {/* 面包屑 */}
-                <div className="flex items-center gap-1 text-sm">
-                  {breadcrumb.map((crumb, index) => (
-                    <span key={crumb.path}>
-                      {index > 0 && (
-                        <span className="text-[#999] dark:text-[#808080] mx-1">/</span>
-                      )}
-                      <button
-                        className={`hover:text-[#4b6ef3] ${
-                          index === breadcrumb.length - 1
-                            ? 'text-[#1a1a1a] dark:text-white font-medium'
-                            : 'text-[#4a4a4a] dark:text-[#b3b3b3]'
-                        }`}
-                        onClick={() => handleBreadcrumbClick(crumb.path)}
-                      >
-                        {crumb.name}
-                      </button>
-                    </span>
-                  ))}
-                </div>
+          ) : fileStructure.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full">
+              <div className="text-[#1a1a1a] dark:text-white text-lg mb-2">
+                知识库为空
               </div>
-            )}
+              <div className="text-[#999] dark:text-[#808080] text-sm">
+                点击右上角 + 添加知识文档
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* 面包屑导航 (仅图标视图显示) */}
+              {viewMode === 'icon' && currentPath && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-[#f7f8fa] dark:bg-[#333333] border-b border-[#ececee] dark:border-[#333333]">
+                  {/* 返回按钮 */}
+                  <button
+                    className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[#ececee] dark:hover:bg-[#404040] text-[#4a4a4a] dark:text-[#b3b3b3] text-sm"
+                    onClick={handleGoBack}
+                    aria-label="返回上级"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    返回
+                  </button>
 
-            {/* 根据视图模式渲染对应组件 */}
-            {viewMode === 'icon' ? (
-              <FileGridView
-                files={currentFiles}
-                selectedFileId={selectedFile?.id || null}
-                onFileClick={handleFileClick}
-                onDoubleClick={handleDoubleClick}
-              />
-            ) : (
-              <FileTreeView
-                files={fileStructure}
-                selectedFileId={selectedFile?.id || null}
-                onFileClick={handleFileClick}
-              />
-            )}
-          </>
-        )}
+                  {/* 分隔线 */}
+                  <div className="w-px h-4 bg-[#ececee] dark:bg-[#404040]" />
+
+                  {/* 面包屑 */}
+                  <div className="flex items-center gap-1 text-sm">
+                    {breadcrumb.map((crumb, index) => (
+                      <span key={crumb.path}>
+                        {index > 0 && (
+                          <span className="text-[#999] dark:text-[#808080] mx-1">/</span>
+                        )}
+                        <button
+                          className={`hover:text-[#4b6ef3] ${
+                            index === breadcrumb.length - 1
+                              ? 'text-[#1a1a1a] dark:text-white font-medium'
+                              : 'text-[#4a4a4a] dark:text-[#b3b3b3]'
+                          }`}
+                          onClick={() => handleBreadcrumbClick(crumb.path)}
+                        >
+                          {crumb.name}
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 根据视图模式渲染对应组件 */}
+              {viewMode === 'icon' ? (
+                <FileGridView
+                  files={currentFiles}
+                  selectedFileId={selectedFile?.id || null}
+                  onFileClick={handleFileClick}
+                  onDoubleClick={handleDoubleClick}
+                />
+              ) : (
+                <FileTreeView
+                  files={fileStructure}
+                  selectedFileId={selectedFile?.id || null}
+                  onFileClick={handleFileClick}
+                />
+              )}
+            </>
+          )}
+        </div>
+
+        {/* 文件详情抽屉 */}
+        <FileDetailDrawer
+          file={selectedFile}
+          isOpen={drawerOpen}
+          onClose={handleCloseDrawer}
+        />
       </div>
 
-      {/* 文件详情抽屉 */}
-      <FileDetailDrawer
-        file={selectedFile}
-        isOpen={drawerOpen}
-        onClose={handleCloseDrawer}
+      {/* 添加知识抽屉 - 移到外层确保覆盖整个屏幕 */}
+      <AddKnowledgeDrawer
+        isOpen={addDrawerOpen}
+        onClose={handleCloseAddDrawer}
+        onSubmit={handleKnowledgeSubmit}
       />
-    </div>
+    </>
   );
 }
