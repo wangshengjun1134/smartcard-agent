@@ -217,7 +217,7 @@ export function KnowledgeBase() {
             <>
               {/* 面包屑导航 (仅图标视图显示，且不在根目录时) */}
               {viewMode === 'icon' && breadcrumb.length > 0 && (
-                <div className="flex items-center gap-2 px-4 py-2 bg-[#f7f7f9] dark:bg-[#111112] border-b border-[#ececee] dark:border-[#333333]">
+                <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#222222] border-b border-[#ececee] dark:border-[#333333]">
                   {/* 返回按钮 */}
                   <button
                     className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[#ececee] dark:hover:bg-[#333333] text-[#4a4a4a] dark:text-[#b3b3b3] text-sm"
