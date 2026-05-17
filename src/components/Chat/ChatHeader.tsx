@@ -5,7 +5,7 @@ interface ChatHeaderProps {
 
 export function ChatHeader({ sidebarOpen, onToggleSidebar }: ChatHeaderProps) {
   return (
-    <header className="flex items-center px-6 h-[45px] bg-white dark:bg-[#222222] border-b border-[#ececee] dark:border-[#333333] flex-shrink-0">
+    <header className="flex items-center px-6 h-[45px] bg-white dark:bg-[#222222] flex-shrink-0">
       {/* 左侧：折叠按钮 + 模型选择 */}
       <div className="flex items-center gap-3">
         {!sidebarOpen && (

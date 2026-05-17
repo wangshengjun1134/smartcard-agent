@@ -19,7 +19,7 @@ export function KnowledgeBaseHeader({
   onCreateFolder 
 }: KnowledgeBaseHeaderProps) {
   return (
-    <header className="flex items-center justify-end px-6 h-[45px] bg-white dark:bg-[#222222] border-b border-[#ececee] dark:border-[#333333] flex-shrink-0">
+    <header className="flex items-center justify-end px-6 h-[45px] bg-white dark:bg-[#222222] flex-shrink-0">
       {/* 右侧：按钮组 */}
       <div className="flex items-center gap-2">
         {/* 新建文件夹按钮 */}

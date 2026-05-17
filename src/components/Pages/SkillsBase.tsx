@@ -2,7 +2,7 @@ export function SkillsBase() {
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* 技能库顶部栏 */}
-      <header className="flex items-center justify-end px-6 h-[45px] bg-white dark:bg-[#222222] border-b border-[#ececee] dark:border-[#333333] flex-shrink-0">
+      <header className="flex items-center justify-end px-6 h-[45px] bg-white dark:bg-[#222222] flex-shrink-0">
         <div className="flex items-center gap-2 ml-auto">
           <button
             className="circle-btn w-[28px] h-[28px] bg-[#10b981]/10 text-[#10b981] hover:bg-[#10b981]/20 dark:bg-[#10b981]/20 dark:text-[#10b981] dark:hover:bg-[#10b981]/30"

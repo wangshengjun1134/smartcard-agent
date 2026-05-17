@@ -93,7 +93,6 @@
   /* 侧边栏样式 */
   .sidebar-container {
     background-color: var(--color-bg-sidebar);
-    border-right: 1px solid var(--color-border);
   }
 
   /* 菜单项 */
