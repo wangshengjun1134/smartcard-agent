@@ -1,4 +1,4 @@
-import { useState, DragEvent } from 'react';
+import { DragEvent, useState } from 'react';
 import { FileNode } from '../../types/file';
 import { FileIcon } from './FileIcon';
 
@@ -10,46 +10,43 @@ interface FileIconItemProps {
   onDragStart?: (file: FileNode) => void;
   onDragEnd?: () => void;
   onDrop?: (draggedFile: FileNode, targetFolder: FileNode) => void;
-  isDropTarget?: boolean;
 }
 
 /**
  * 图标视图中的单个文件项组件
  * 支持拖拽到文件夹
  */
-export function FileIconItem({ 
-  file, 
-  onClick, 
-  onDoubleClick, 
+export function FileIconItem({
+  file,
+  onClick,
+  onDoubleClick,
   selected = false,
   onDragStart,
   onDragEnd,
   onDrop,
-  isDropTarget = false
 }: FileIconItemProps) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
 
   // 开始拖拽
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
-    e.dataTransfer.setData('text/plain', JSON.stringify({
+    e.dataTransfer.setData('application/json', JSON.stringify({
       id: file.id,
       name: file.name,
       path: file.path,
+      type: file.type,
       isFolder: file.isFolder
     }));
-    setIsDragging(true);
+    e.dataTransfer.effectAllowed = 'move';
     onDragStart?.(file);
   };
 
   // 结束拖拽
   const handleDragEnd = () => {
-    setIsDragging(false);
     onDragEnd?.();
   };
 
-  // 拖拽进入 (仅文件夹可接收)
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+  // 拖拽进入目标
+  const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
     if (file.isFolder) {
       e.preventDefault();
       e.stopPropagation();
@@ -57,14 +54,23 @@ export function FileIconItem({
     }
   };
 
-  // 拖拽离开
+  // 拖拽在目标上方移动
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (file.isFolder) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+    }
+  };
+
+  // 拖拽离开目标
   const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
   };
 
-  // 放置 (仅文件夹可接收)
+  // 放置到目标
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -72,9 +78,13 @@ export function FileIconItem({
 
     if (file.isFolder) {
       try {
-        const draggedData = JSON.parse(e.dataTransfer.getData('text/plain'));
-        if (draggedData.id !== file.id) {
-          onDrop?.(draggedData as FileNode, file);
+        const data = e.dataTransfer.getData('application/json');
+        if (data) {
+          const draggedFile = JSON.parse(data) as FileNode;
+          if (draggedFile.id !== file.id && !draggedFile.isFolder) {
+            // 只允许文件拖入文件夹，不允许文件夹拖入文件夹
+            onDrop?.(draggedFile, file);
+          }
         }
       } catch {
         // 忽略解析错误
@@ -82,17 +92,25 @@ export function FileIconItem({
     }
   };
 
+  // 组合类名
+  const classNames = [
+    'file-icon-item',
+    selected ? 'selected' : '',
+    isDragOver ? 'drag-over' : '',
+  ].filter(Boolean).join(' ');
+
   return (
     <div
-      className={`file-icon-item ${selected ? 'selected' : ''} ${isDragging ? 'opacity-50' : ''} ${isDragOver || isDropTarget ? 'bg-[#4b6ef3]/10 border-[#4b6ef3]' : ''}`}
+      className={classNames}
       onClick={() => onClick(file)}
       onDoubleClick={() => onDoubleClick?.(file)}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      draggable={!file.isFolder || true}
+      draggable={true}
       role="button"
       tabIndex={0}
       aria-selected={selected}

@@ -520,9 +520,10 @@
   justify-content: center;
   border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.2s, border-color 0.2s;
+  transition: background-color 0.2s, border-color 0.2s, opacity 0.2s;
   background: transparent;
   border: 2px solid transparent;
+  user-select: none;
 }
 
 .file-icon-item:hover {
@@ -532,6 +533,20 @@
 .file-icon-item.selected {
   border-color: #4b6ef3;
   background-color: #f3f5f9;
+}
+
+/* 拖拽中的文件 */
+.file-icon-item.dragging {
+  opacity: 0.4;
+  border-color: #4b6ef3;
+  background-color: #4b6ef3/10;
+}
+
+/* 拖拽目标文件夹高亮 */
+.file-icon-item.drag-over {
+  border-color: #4b6ef3;
+  background-color: rgba(75, 110, 243, 0.15);
+  box-shadow: 0 0 8px rgba(75, 110, 243, 0.3);
 }
 
 /* 文件图标 */
@@ -729,6 +744,18 @@
 .dark .file-icon-item.selected {
   border-color: #4b6ef3 !important;
   background-color: #404040 !important;
+}
+
+.dark .file-icon-item.dragging {
+  opacity: 0.4;
+  border-color: #4b6ef3 !important;
+  background-color: rgba(75, 110, 243, 0.1) !important;
+}
+
+.dark .file-icon-item.drag-over {
+  border-color: #4b6ef3 !important;
+  background-color: rgba(75, 110, 243, 0.2) !important;
+  box-shadow: 0 0 8px rgba(75, 110, 243, 0.3) !important;
 }
 
 .dark .file-name {

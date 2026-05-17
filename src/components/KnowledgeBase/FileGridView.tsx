@@ -1,4 +1,3 @@
-import { useState, useCallback } from 'react';
 import { FileNode } from '../../types/file';
 import { FileIconItem } from './FileIconItem';
 
@@ -12,39 +11,19 @@ interface FileGridViewProps {
 
 /**
  * 图标视图网格布局组件
- * 支持文件拖拽到文件夹
  */
-export function FileGridView({ 
-  files, 
-  selectedFileId, 
-  onFileClick, 
+export function FileGridView({
+  files,
+  selectedFileId,
+  onFileClick,
   onDoubleClick,
   onMoveFile
 }: FileGridViewProps) {
-  const [draggedFile, setDraggedFile] = useState<FileNode | null>(null);
-  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
-
-  // 开始拖拽
-  const handleDragStart = useCallback((file: FileNode) => {
-    setDraggedFile(file);
-    setDropTargetId(null);
-  }, []);
-
-  // 结束拖拽
-  const handleDragEnd = useCallback(() => {
-    setDraggedFile(null);
-    setDropTargetId(null);
-  }, []);
-
-  // 放置到文件夹 - 使用 draggedFile 判断
-  const handleDrop = useCallback((dragged: FileNode, targetFolder: FileNode) => {
-    if (draggedFile && onMoveFile && dragged.id !== targetFolder.id) {
-      console.log(`Move ${dragged.name} to ${targetFolder.name}`);
-      onMoveFile(dragged, targetFolder);
-    }
-    setDraggedFile(null);
-    setDropTargetId(null);
-  }, [draggedFile, onMoveFile]);
+  // 拖拽放置处理
+  const handleDrop = (draggedFile: FileNode, targetFolder: FileNode) => {
+    console.log(`Move ${draggedFile.name} to folder ${targetFolder.name}`);
+    onMoveFile?.(draggedFile, targetFolder);
+  };
 
   return (
     <div className="file-grid">
@@ -55,10 +34,7 @@ export function FileGridView({
           onClick={onFileClick}
           onDoubleClick={onDoubleClick}
           selected={selectedFileId === file.id}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
           onDrop={handleDrop}
-          isDropTarget={dropTargetId === file.id}
         />
       ))}
     </div>
