@@ -1,10 +1,17 @@
+import { useState } from 'react';
 import { useSessions } from './hooks/useSessions';
 import { AppLayout } from './components/layout/AppLayout';
-import { Sidebar } from './components/Sidebar/Sidebar';
+import { Sidebar, ViewType } from './components/Sidebar/Sidebar';
 import { MessageList } from './components/Chat/MessageList';
 import { ChatInput } from './components/Chat/ChatInput';
+import { ChatHeader } from './components/Chat/ChatHeader';
+import { KnowledgeBase } from './components/Pages/KnowledgeBase';
+import { SkillsBase } from './components/Pages/SkillsBase';
 
 function App() {
+  const [currentView, setCurrentView] = useState<ViewType>('chat');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
   const {
     sessions,
     groups,
@@ -54,13 +61,57 @@ function App() {
     );
   }
 
+  // 根据视图渲染不同的主内容
+  const renderMainContent = () => {
+    if (currentView === 'knowledge') {
+      return <KnowledgeBase />;
+    }
+    if (currentView === 'skills') {
+      return <SkillsBase />;
+    }
+    // 默认聊天视图
+    return (
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* 聊天顶部栏 */}
+        <ChatHeader
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen(prev => !prev)}
+        />
+
+        {/* 消息区域 */}
+        <div className="flex-1 overflow-hidden min-h-0">
+          <MessageList
+            messages={currentSession?.messages || []}
+            isLoading={false}
+            hasSession={!!currentSessionId}
+          />
+        </div>
+
+        {/* 输入区域 */}
+        <div className="flex flex-col items-center pb-3">
+          <ChatInput
+            onSend={handleSendMessage}
+            disabled={false}
+          />
+          {/* 底部提示 */}
+          <div className="text-xs text-[#999] text-center py-3">
+            按住 右Alt 随时随地语音输入
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <AppLayout
+      sidebarOpen={sidebarOpen}
+      onToggleSidebar={() => setSidebarOpen(prev => !prev)}
       sidebar={
         <Sidebar
           sessions={sessions}
           groups={groups}
           currentSessionId={currentSessionId}
+          currentView={currentView}
           onNewSession={createSession}
           onSelectSession={switchSession}
           onDeleteSession={deleteSession}
@@ -71,30 +122,10 @@ function App() {
           onUpdateGroup={updateGroup}
           onDeleteGroup={deleteGroup}
           onPinGroup={pinGroup}
+          onViewChange={setCurrentView}
         />
       }
-      main={
-        <div className="h-full flex flex-col">
-          {/* 消息区域 */}
-          <MessageList
-            messages={currentSession?.messages || []}
-            isLoading={false}
-            hasSession={!!currentSessionId}
-          />
-
-          {/* 输入区域 */}
-          <div className="flex flex-col items-center pb-3">
-            <ChatInput
-              onSend={handleSendMessage}
-              disabled={false}
-            />
-            {/* 底部提示 */}
-            <div className="text-xs text-[#999] text-center py-3">
-              按住 右Alt 随时随地语音输入
-            </div>
-          </div>
-        </div>
-      }
+      main={renderMainContent()}
     />
   );
 }

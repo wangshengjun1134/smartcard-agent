@@ -7,10 +7,13 @@ import { ConversationActionMenu } from '../Dialog/ConversationActionMenu';
 import { ConfirmDialog } from '../Dialog/ConfirmDialog';
 import { GroupSelectDialog } from '../Dialog/GroupSelectDialog';
 
+export type ViewType = 'chat' | 'knowledge' | 'skills';
+
 interface SidebarProps {
   sessions: Session[];
   groups: Group[];
   currentSessionId: string | null;
+  currentView: ViewType;
   onNewSession: (groupId?: string) => void;
   onSelectSession: (id: string) => void;
   onDeleteSession: (id: string) => void;
@@ -21,12 +24,14 @@ interface SidebarProps {
   onUpdateGroup: (id: string, name: string) => void;
   onDeleteGroup: (id: string) => void;
   onPinGroup: (id: string) => void;
+  onViewChange: (view: ViewType) => void;
 }
 
 export function Sidebar({
   sessions,
   groups,
   currentSessionId,
+  currentView,
   onNewSession,
   onSelectSession,
   onDeleteSession,
@@ -37,6 +42,7 @@ export function Sidebar({
   onUpdateGroup,
   onDeleteGroup,
   onPinGroup,
+  onViewChange,
 }: SidebarProps) {
   // 分页状态
   const [displayLimit, setDisplayLimit] = useState(5);
@@ -269,8 +275,11 @@ export function Sidebar({
       </div>
 
       {/* 新建对话按钮 */}
-      <div className="mb-5">
-        <button className="new-chat-btn w-full" onClick={() => onNewSession()}>
+      <div className="mb-4">
+        <button className="new-chat-btn w-full" onClick={() => {
+          onNewSession();
+          onViewChange('chat');
+        }}>
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
@@ -278,6 +287,28 @@ export function Sidebar({
           <svg className="w-4 h-4 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
+        </button>
+      </div>
+
+      {/* 知识库、技能库 */}
+      <div className="mb-4 flex flex-col gap-1">
+        <button
+          className={`menu-item cursor-pointer w-full text-left ${currentView === 'knowledge' ? 'bg-[#f7f8fa] text-[#4b6ef3]' : ''}`}
+          onClick={() => onViewChange('knowledge')}
+        >
+          <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          知识库
+        </button>
+        <button
+          className={`menu-item cursor-pointer w-full text-left ${currentView === 'skills' ? 'bg-[#f7f8fa] text-[#4b6ef3]' : ''}`}
+          onClick={() => onViewChange('skills')}
+        >
+          <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+          技能库
         </button>
       </div>
 
@@ -381,7 +412,10 @@ export function Sidebar({
           <SessionList
             sessions={sessions}
             currentSessionId={currentSessionId}
-            onSelect={onSelectSession}
+            onSelect={(id) => {
+              onSelectSession(id);
+              onViewChange('chat');
+            }}
             onUpdateTitle={onUpdateSessionTitle}
             groups={groups}
             onMenuOpen={handleConversationMenuOpen}
