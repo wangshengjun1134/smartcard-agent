@@ -7,7 +7,7 @@
   --color-primary-light: #7a8ff5;
 
   --color-bg-main: #ffffff;
-  --color-bg-sidebar: #f9f9fc;
+  --color-bg-sidebar: #f7f7f9;
   --color-bg-input: #f4f5f7;
   --color-bg-hover: #ececee;
   --color-bg-active: #e5e7eb;
@@ -49,6 +49,27 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* 深色模式 */
+  .dark body,
+  .dark {
+    --color-bg-main: #222222;
+    --color-bg-sidebar: #111112;
+    --color-bg-input: #2d2d2d;
+    --color-bg-hover: #363636;
+    --color-bg-active: #404040;
+
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #b3b3b3;
+    --color-text-muted: #808080;
+    --color-text-icon: #a0a0a0;
+
+    --color-border: #363636;
+    --color-border-light: #404040;
+
+    background-color: #222222;
+    color: #ffffff;
   }
 
   :focus-visible {
@@ -157,6 +178,10 @@
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
   }
 
+  .dark .input-box {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+
   .input-box textarea {
     width: 100%;
     background: transparent;
@@ -184,6 +209,10 @@
     border-radius: 12px;
     transition: background-color 200ms;
     border: 1px solid transparent;
+  }
+
+  .dark .tool-chip {
+    color: #a0a0a0;
   }
 
   .tool-chip:hover {
@@ -266,6 +295,196 @@
   }
   .sidebar-container:hover ::-webkit-scrollbar-thumb:hover {
     background: var(--color-send-disabled);
+  }
+
+  /* 深色模式下的对话框背景 */
+  .dark .bg-white {
+    background-color: #222222 !important;
+  }
+
+  .dark .bg-\[\#f7f8fa\] {
+    background-color: #333333 !important;
+  }
+
+  .dark .bg-\[\#ececee\] {
+    background-color: #404040 !important;
+  }
+
+  .dark .bg-\[\#f0f0f0\] {
+    background-color: #333333 !important;
+  }
+
+  .dark .bg-\[\#f3f5f9\] {
+    background-color: #404040 !important;
+  }
+
+  .dark .border-\[\#ececee\] {
+    border-color: #333333 !important;
+  }
+
+  .dark .border-\[\#f0f0f0\] {
+    border-color: #333333 !important;
+  }
+
+  .dark .border-\[\#f5f5f5\] {
+    border-color: #404040 !important;
+  }
+
+  .dark .text-\[\#1a1a1a\] {
+    color: #ffffff !important;
+  }
+
+  .dark .text-\[\#4a4a4a\] {
+    color: #b3b3b3 !important;
+  }
+
+  .dark .text-\[\#666\] {
+    color: #a0a0a0 !important;
+  }
+
+  .dark .text-\[\#888\] {
+    color: #808080 !important;
+  }
+
+  .dark .text-\[\#999\] {
+    color: #808080 !important;
+  }
+
+  .dark .text-\[\#333\] {
+    color: #ffffff !important;
+  }
+
+  .dark .text-\[\#555\] {
+    color: #a0a0a0 !important;
+  }
+
+  /* 深色模式 - header */
+  .dark header {
+    background-color: #222222 !important;
+    border-bottom-color: #333333 !important;
+  }
+
+  /* 深色模式 - 知识库/技能库卡片 */
+  .dark .bg-\[\#f7f8fa\]\:hover {
+    background-color: #333333 !important;
+  }
+
+  .dark .group-hover\:bg-white\:hover {
+    background-color: #333333 !important;
+  }
+
+  .dark .hover\:bg-\[\#ececee\] {
+    background-color: #333333 !important;
+  }
+
+  .dark .hover\:bg-\[\#ececee\]\:hover {
+    background-color: #333333 !important;
+  }
+
+  /* 深色模式 - 输入框 */
+  .dark .input-box {
+    background-color: #333333 !important;
+  }
+
+  /* 深色模式 - 消息 */
+  .dark .message-user {
+    background-color: #333333 !important;
+  }
+
+  /* 深色模式 - 欢迎界面 */
+  .dark .bg-\[\#ffffff\] {
+    background-color: #222222 !important;
+  }
+
+  /* 深色模式 - 搜索框 */
+  .dark input {
+    background-color: #333333 !important;
+    border-color: #333333 !important;
+    color: #ffffff !important;
+  }
+
+  .dark input::placeholder {
+    color: #808080 !important;
+  }
+
+  .dark input:focus {
+    border-color: #4b6ef3 !important;
+  }
+
+  /* 深色模式 - 按钮 hover */
+  .dark .hover\:bg-\[\#f7f8fa\]:hover {
+    background-color: #333333 !important;
+  }
+
+  .dark .hover\:bg-\[\#ececee\]:hover {
+    background-color: #333333 !important;
+  }
+
+  .dark .hover\:bg-\[\#eef0f5\]:hover {
+    background-color: #333333 !important;
+  }
+
+  .dark .hover\:bg-\[\#e5e7eb\]:hover {
+    background-color: #333333 !important;
+  }
+
+  /* 深色模式 - 圆形按钮 hover */
+  .dark .circle-btn:hover {
+    background-color: #333333 !important;
+  }
+
+  /* 深色模式 - 侧边栏 */
+  .dark .sidebar-container {
+    background-color: #111112 !important;
+    border-right-color: #333333 !important;
+  }
+
+  /* 深色模式 - 分割线 */
+  .dark .border-t {
+    border-top-color: #333333 !important;
+  }
+
+  .dark .border-b {
+    border-bottom-color: #333333 !important;
+  }
+
+  /* 深色模式 - 新建对话按钮 */
+  .dark .new-chat-btn {
+    background-color: #222222 !important;
+    border-color: #333333 !important;
+    color: #ffffff !important;
+  }
+
+  .dark .new-chat-btn:hover {
+    background-color: #333333 !important;
+  }
+
+  /* 深色模式 - 会话项 */
+  .dark .session-item {
+    color: #b3b3b3 !important;
+  }
+
+  .dark .session-item:hover {
+    background-color: #222222 !important;
+  }
+
+  .dark .session-item.active {
+    background-color: #333333 !important;
+    color: #ffffff !important;
+  }
+
+  /* 深色模式 - 菜单项 */
+  .dark .menu-item {
+    color: #b3b3b3 !important;
+  }
+
+  .dark .menu-item:hover {
+    background-color: #222222 !important;
+  }
+
+  /* 深色模式 - 设置对话框 */
+  .dark .shadow-\[0_8px_30px_rgba\(0\,0\,0\,0\.08\)\] {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3) !important;
   }
 }
 

@@ -29,7 +29,7 @@ export function AppLayout({ sidebar, main, sidebarOpen: externalSidebarOpen, onT
   }, [externalSidebarOpen]);
 
   return (
-    <div className="flex h-screen w-full bg-[#ffffff] overflow-hidden">
+    <div className="flex h-screen w-full bg-[#ffffff] dark:bg-[#222222] overflow-hidden">
       {/* 侧边栏 */}
       {sidebarOpen && (
         <div className={`${isMobile ? 'absolute z-20 h-full' : 'relative'}`}>
@@ -47,7 +47,7 @@ export function AppLayout({ sidebar, main, sidebarOpen: externalSidebarOpen, onT
       )}
 
       {/* 主内容区 */}
-      <div className="flex-1 flex flex-col h-full relative overflow-hidden">
+      <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-[#ffffff] dark:bg-[#222222]">
         {main}
       </div>
     </div>

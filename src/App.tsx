@@ -7,6 +7,7 @@ import { ChatInput } from './components/Chat/ChatInput';
 import { ChatHeader } from './components/Chat/ChatHeader';
 import { KnowledgeBase } from './components/Pages/KnowledgeBase';
 import { SkillsBase } from './components/Pages/SkillsBase';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 function App() {
   const [currentView, setCurrentView] = useState<ViewType>('chat');
@@ -103,30 +104,32 @@ function App() {
   };
 
   return (
-    <AppLayout
-      sidebarOpen={sidebarOpen}
-      onToggleSidebar={() => setSidebarOpen(prev => !prev)}
-      sidebar={
-        <Sidebar
-          sessions={sessions}
-          groups={groups}
-          currentSessionId={currentSessionId}
-          currentView={currentView}
-          onNewSession={createSession}
-          onSelectSession={switchSession}
-          onDeleteSession={deleteSession}
-          onUpdateSessionTitle={updateSessionTitle}
-          onPinSession={pinSession}
-          onMoveSessionToGroup={moveSessionToGroup}
-          onCreateGroup={createGroup}
-          onUpdateGroup={updateGroup}
-          onDeleteGroup={deleteGroup}
-          onPinGroup={pinGroup}
-          onViewChange={setCurrentView}
-        />
-      }
-      main={renderMainContent()}
-    />
+    <ThemeProvider>
+      <AppLayout
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen(prev => !prev)}
+        sidebar={
+          <Sidebar
+            sessions={sessions}
+            groups={groups}
+            currentSessionId={currentSessionId}
+            currentView={currentView}
+            onNewSession={createSession}
+            onSelectSession={switchSession}
+            onDeleteSession={deleteSession}
+            onUpdateSessionTitle={updateSessionTitle}
+            onPinSession={pinSession}
+            onMoveSessionToGroup={moveSessionToGroup}
+            onCreateGroup={createGroup}
+            onUpdateGroup={updateGroup}
+            onDeleteGroup={deleteGroup}
+            onPinGroup={pinGroup}
+            onViewChange={setCurrentView}
+          />
+        }
+        main={renderMainContent()}
+      />
+    </ThemeProvider>
   );
 }
 
