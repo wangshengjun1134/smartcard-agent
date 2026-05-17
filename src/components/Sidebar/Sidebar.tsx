@@ -6,6 +6,8 @@ import { GroupActionMenu } from '../Dialog/GroupActionMenu';
 import { ConversationActionMenu } from '../Dialog/ConversationActionMenu';
 import { ConfirmDialog } from '../Dialog/ConfirmDialog';
 import { GroupSelectDialog } from '../Dialog/GroupSelectDialog';
+import { UserMenu } from '../Dialog/UserMenu';
+import { SettingsDialog } from '../Dialog/SettingsDialog';
 
 export type ViewType = 'chat' | 'knowledge' | 'skills';
 
@@ -110,9 +112,22 @@ export function Sidebar({
     currentGroupId: undefined,
   });
 
+  // 用户菜单状态
+  const [userMenuState, setUserMenuState] = useState<{
+    isOpen: boolean;
+    bottom: number;
+  }>({
+    isOpen: false,
+    bottom: 0,
+  });
+
+  // 设置对话框状态
+  const [showSettings, setShowSettings] = useState(false);
+
   // inline 编辑状态
   const [editingValue, setEditingValue] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
   // 处理分组菜单
   const handleGroupMenuOpen = (e: React.MouseEvent, group: Group, groupSessions: Session[]) => {
@@ -256,7 +271,7 @@ export function Sidebar({
   const canExpand = groups.length > 5;
 
   return (
-    <div className="sidebar-container w-[260px] h-full flex flex-col p-4 flex-shrink-0">
+    <div ref={sidebarRef} className="sidebar-container w-[260px] h-full flex flex-col p-4 flex-shrink-0 relative">
       {/* 顶部：Logo 和图标 */}
       <div className="flex items-center justify-between mb-4">
         <div className="text-base font-semibold text-[#1a1a1a]">SmartCardAgent</div>
@@ -425,7 +440,20 @@ export function Sidebar({
       </div>
 
       {/* 底部用户信息 */}
-      <div className="flex items-center gap-3 pt-4 border-t border-[#ececee] mt-auto">
+      <div
+        className="flex items-center gap-3 pt-4 border-t border-[#ececee] mt-auto cursor-pointer hover:bg-[#f7f8fa] rounded-lg px-2 py-3 -mx-2 transition-colors"
+        onClick={(e) => {
+          if (sidebarRef.current) {
+            const sidebarRect = sidebarRef.current.getBoundingClientRect();
+            const buffRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            const bottom = sidebarRect.bottom - buffRect.top;
+            setUserMenuState({
+              isOpen: true,
+              bottom,
+            });
+          }
+        }}
+      >
         <div className="w-8 h-8 rounded-full avatar-gradient flex items-center justify-center text-white text-xs font-semibold">
           B
         </div>
@@ -482,6 +510,18 @@ export function Sidebar({
         groups={groups}
         currentGroupId={groupSelectState.currentGroupId}
         onSelect={handleSelectGroup}
+      />
+
+      <UserMenu
+        isOpen={userMenuState.isOpen}
+        onClose={() => setUserMenuState({ isOpen: false, bottom: 0 })}
+        bottom={userMenuState.bottom}
+        onOpenSettings={() => setShowSettings(true)}
+      />
+
+      <SettingsDialog
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
       />
     </div>
   );
