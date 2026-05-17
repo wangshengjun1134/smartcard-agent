@@ -54,18 +54,20 @@ export function KnowledgeBase() {
     return folder?.children || [];
   }, [fileStructure, currentPath]);
 
-  // 获取当前路径的面包屑信息
+  // 获取当前路径的面包屑信息 (去掉 "docs" 部分)
   const breadcrumb = useMemo(() => {
     if (!currentPath) {
-      return [{ name: '知识库', path: '' }];
+      return [];
     }
 
-    const parts = currentPath.split('/').filter(Boolean);
-    const crumbs = [{ name: '知识库', path: '' }];
-
+    // 去掉路径中的 "/docs" 前缀
+    const normalizedPath = currentPath.replace(/^\/docs/, '');
+    const parts = normalizedPath.split('/').filter(Boolean);
+    
+    const crumbs = [];
     let accumulatedPath = '';
     for (const part of parts) {
-      accumulatedPath += '/' + part;
+      accumulatedPath += '/docs/' + part;
       crumbs.push({ name: part, path: accumulatedPath });
     }
 
@@ -145,6 +147,42 @@ export function KnowledgeBase() {
     [refresh]
   );
 
+  // 新建文件夹
+  const handleCreateFolder = useCallback(() => {
+    // 生成文件夹名称
+    const generateFolderName = (existingNames: string[]): string => {
+      const baseName = '新建文件夹';
+      if (!existingNames.includes(baseName)) {
+        return baseName;
+      }
+      let counter = 2;
+      while (existingNames.includes(`${baseName} (${counter})`)) {
+        counter++;
+      }
+      return `${baseName} (${counter})`;
+    };
+
+    // 获取当前目录下已有的文件夹名称
+    const existingNames = currentFiles
+      .filter(f => f.isFolder)
+      .map(f => f.name);
+
+    const newFolderName = generateFolderName(existingNames);
+    console.log('Creating folder:', newFolderName, 'at path:', currentPath || '/docs');
+    
+    // TODO: 调用后端 API 创建文件夹
+    // 目前仅打印日志，刷新后不会保留
+    refresh();
+  }, [currentFiles, currentPath, refresh]);
+
+  // 拖拽移动文件
+  const handleMoveFile = useCallback((draggedFile: FileNode, targetFolder: FileNode) => {
+    console.log(`Moving ${draggedFile.name} to folder ${targetFolder.name}`);
+    // TODO: 调用后端 API 移动文件
+    // 目前仅打印日志，刷新后不会保留
+    refresh();
+  }, [refresh]);
+
   return (
     <>
       <div className="flex-1 flex flex-col min-h-0">
@@ -153,6 +191,7 @@ export function KnowledgeBase() {
           viewMode={viewMode}
           onViewModeChange={handleViewModeChange}
           onAddClick={handleAddClick}
+          onCreateFolder={handleCreateFolder}
         />
 
         {/* 内容区域 */}
@@ -176,12 +215,12 @@ export function KnowledgeBase() {
             </div>
           ) : (
             <>
-              {/* 面包屑导航 (仅图标视图显示) */}
-              {viewMode === 'icon' && currentPath && (
-                <div className="flex items-center gap-2 px-4 py-2 bg-[#f7f8fa] dark:bg-[#333333] border-b border-[#ececee] dark:border-[#333333]">
+              {/* 面包屑导航 (仅图标视图显示，且不在根目录时) */}
+              {viewMode === 'icon' && breadcrumb.length > 0 && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-[#f7f7f9] dark:bg-[#111112] border-b border-[#ececee] dark:border-[#333333]">
                   {/* 返回按钮 */}
                   <button
-                    className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[#ececee] dark:hover:bg-[#404040] text-[#4a4a4a] dark:text-[#b3b3b3] text-sm"
+                    className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[#ececee] dark:hover:bg-[#333333] text-[#4a4a4a] dark:text-[#b3b3b3] text-sm"
                     onClick={handleGoBack}
                     aria-label="返回上级"
                   >
@@ -192,15 +231,13 @@ export function KnowledgeBase() {
                   </button>
 
                   {/* 分隔线 */}
-                  <div className="w-px h-4 bg-[#ececee] dark:bg-[#404040]" />
+                  <div className="w-px h-4 bg-[#ececee] dark:bg-[#333333]" />
 
                   {/* 面包屑 */}
                   <div className="flex items-center gap-1 text-sm">
                     {breadcrumb.map((crumb, index) => (
                       <span key={crumb.path}>
-                        {index > 0 && (
-                          <span className="text-[#999] dark:text-[#808080] mx-1">/</span>
-                        )}
+                        <span className="text-[#999] dark:text-[#808080] mx-1">/</span>
                         <button
                           className={`hover:text-[#4b6ef3] ${
                             index === breadcrumb.length - 1
@@ -224,6 +261,7 @@ export function KnowledgeBase() {
                   selectedFileId={selectedFile?.id || null}
                   onFileClick={handleFileClick}
                   onDoubleClick={handleDoubleClick}
+                  onMoveFile={handleMoveFile}
                 />
               ) : (
                 <FileTreeView
