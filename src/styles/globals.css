@@ -629,11 +629,11 @@
 
 /* 文件详情抽屉 */
 .file-drawer {
-  position: fixed;
+  position: absolute;
   right: 0;
   top: 0;
   width: 320px;
-  height: 100vh;
+  height: 100%;
   background: #ffffff;
   border-left: 1px solid #ececee;
   transform: translateX(100%);
@@ -647,7 +647,7 @@
 
 /* 抽屉遮罩层 */
 .drawer-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.3);
   z-index: 99;
@@ -667,7 +667,7 @@
 .drawer-content {
   padding: 16px;
   overflow-y: auto;
-  height: calc(100vh - 45px);
+  height: calc(100% - 45px);
 }
 
 /* 信息区块 */
@@ -815,11 +815,11 @@
 
 /* 添加知识抽屉 - 基础样式，不包含 transform */
 .add-knowledge-drawer {
-  position: fixed !important;
+  position: absolute !important;
   right: 0 !important;
   top: 0 !important;
   width: 400px !important;
-  height: 100vh !important;
+  height: 100% !important;
   background: #ffffff;
   border-left: 1px solid #ececee;
   transition: transform 0.3s ease;

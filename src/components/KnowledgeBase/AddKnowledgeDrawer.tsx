@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { KnowledgeFormData, DEFAULT_FORM_DATA } from '../../types/knowledge';
 import { useFileUpload } from '../../hooks/useFileUpload';
 import { useFormValidation } from '../../hooks/useFormValidation';
@@ -139,12 +138,12 @@ export function AddKnowledgeDrawer({
   // 确认按钮禁用条件
   const isConfirmDisabled = !file || isCalculatingHash || !formData.title.trim();
 
-  const drawerContent = (
+  return (
     <>
       {/* 遮罩层 */}
       {isOpen && (
         <div
-          className="drawer-overlay fixed inset-0 bg-[rgba(0,0,0,0.3)] z-[99]"
+          className="drawer-overlay absolute inset-0 bg-[rgba(0,0,0,0.3)] z-[99]"
           onClick={handleOverlayClick}
         />
       )}
@@ -211,6 +210,4 @@ export function AddKnowledgeDrawer({
       </div>
     </>
   );
-
-  return createPortal(drawerContent, document.body);
 }

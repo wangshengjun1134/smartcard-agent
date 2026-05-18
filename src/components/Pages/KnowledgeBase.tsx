@@ -74,9 +74,18 @@ export function KnowledgeBase() {
     return crumbs;
   }, [currentPath]);
 
-  // 处理单击 (选中文件)
+  // 处理单击 (选中文件) - 图标视图
   const handleFileClick = (file: FileNode) => {
     setSelectedFile(file);
+  };
+
+  // 处理树形视图单击 (选中文件并打开抽屉)
+  const handleTreeFileClick = (file: FileNode) => {
+    setSelectedFile(file);
+    // 如果是文件，直接打开抽屉
+    if (!file.isFolder) {
+      setDrawerOpen(true);
+    }
   };
 
   // 处理双击 (文件夹进入 / 文件打开抽屉)
@@ -184,18 +193,19 @@ export function KnowledgeBase() {
   }, [refresh]);
 
   return (
-    <>
-      <div className="flex-1 flex flex-col min-h-0">
-        {/* 顶部栏 */}
-        <KnowledgeBaseHeader
-          viewMode={viewMode}
-          onViewModeChange={handleViewModeChange}
-          onAddClick={handleAddClick}
-          onCreateFolder={handleCreateFolder}
-        />
+    <div className="flex-1 flex flex-col min-h-0">
+      {/* 顶部栏 */}
+      <KnowledgeBaseHeader
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+        onAddClick={handleAddClick}
+        onCreateFolder={handleCreateFolder}
+      />
 
-        {/* 内容区域 */}
-        <div className="flex-1 overflow-y-auto">
+      {/* 内容区域容器 */}
+      <div className="flex-1 relative min-h-0">
+        {/* 滚动内容 */}
+        <div className="absolute inset-0 overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-[#999] dark:text-[#808080]">加载中...</div>
@@ -267,7 +277,7 @@ export function KnowledgeBase() {
                 <FileTreeView
                   files={fileStructure}
                   selectedFileId={selectedFile?.id || null}
-                  onFileClick={handleFileClick}
+                  onFileClick={handleTreeFileClick}
                 />
               )}
             </>
@@ -280,14 +290,14 @@ export function KnowledgeBase() {
           isOpen={drawerOpen}
           onClose={handleCloseDrawer}
         />
-      </div>
 
-      {/* 添加知识抽屉 - 移到外层确保覆盖整个屏幕 */}
-      <AddKnowledgeDrawer
-        isOpen={addDrawerOpen}
-        onClose={handleCloseAddDrawer}
-        onSubmit={handleKnowledgeSubmit}
-      />
-    </>
+        {/* 添加知识抽屉 */}
+        <AddKnowledgeDrawer
+          isOpen={addDrawerOpen}
+          onClose={handleCloseAddDrawer}
+          onSubmit={handleKnowledgeSubmit}
+        />
+      </div>
+    </div>
   );
 }
