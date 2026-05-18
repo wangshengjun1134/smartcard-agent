@@ -31,7 +31,7 @@ export function MessageList({ messages, isLoading, hasSession }: MessageListProp
         </div>
         {/* 欢迎文字 */}
         <div className="text-2xl text-[#1a1a1a] tracking-wide">
-          你好，我是千问
+          你好，我是SmartCardAgent
         </div>
       </div>
     );

@@ -1,0 +1,26 @@
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- 左上 -->
+    <rect x="4" y="4" width="6" height="6" rx="1.2" stroke="#1a2bff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- 右上（切掉右上角） -->
+    <path
+        d="M15 4
+           H17
+           L20 7
+           V10
+           H14
+           V5
+           A1.2 1.2 0 0 1 15 4
+           Z"
+        stroke="#1a2bff"
+        stroke-width="1.6"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+    />
+
+    <!-- 左下 -->
+    <rect x="4" y="14" width="6" height="6" rx="1.2" stroke="#1a2bff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- 右下 -->
+    <rect x="14" y="14" width="6" height="6" rx="1.2" stroke="#1a2bff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

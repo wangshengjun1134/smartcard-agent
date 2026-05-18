@@ -43,7 +43,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           value={content}
           onChange={(e) => setContent(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="向千问提问"
+          placeholder="向SmartCardAgent提问"
           disabled={disabled}
           rows={1}
           className={`${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}

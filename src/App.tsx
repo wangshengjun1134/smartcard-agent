@@ -71,6 +71,8 @@ function App() {
       return <SkillsBase />;
     }
     // 默认聊天视图
+    const hasMessages = (currentSession?.messages?.length ?? 0) > 0;
+
     return (
       <div className="flex-1 flex flex-col min-h-0">
         {/* 聊天顶部栏 */}
@@ -79,26 +81,45 @@ function App() {
           onToggleSidebar={() => setSidebarOpen(prev => !prev)}
         />
 
-        {/* 消息区域 */}
-        <div className="flex-1 overflow-hidden min-h-0">
-          <MessageList
-            messages={currentSession?.messages || []}
-            isLoading={false}
-            hasSession={!!currentSessionId}
-          />
-        </div>
-
-        {/* 输入区域 */}
-        <div className="flex flex-col items-center pb-3">
-          <ChatInput
-            onSend={handleSendMessage}
-            disabled={false}
-          />
-          {/* 底部提示 */}
-          <div className="text-xs text-[#999] text-center py-3">
-            按住 右Alt 随时随地语音输入
+        {/* 内容区域 */}
+        {hasMessages ? (
+          <>
+            {/* 消息列表 */}
+            <div className="flex-1 overflow-hidden min-h-0">
+              <MessageList
+                messages={currentSession?.messages || []}
+                isLoading={false}
+                hasSession={!!currentSessionId}
+              />
+            </div>
+            {/* 输入区域 - 底部 */}
+            <div className="flex flex-col items-center pb-3">
+              <ChatInput
+                onSend={handleSendMessage}
+                disabled={false}
+              />
+            </div>
+          </>
+        ) : (
+          /* 无消息时 - 整体居中 */
+          <div className="flex-1 flex flex-col items-center justify-center">
+            {/* 欢迎图标 */}
+            <div className="mb-4">
+              <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ stroke: '#5870f6' }}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+              </svg>
+            </div>
+            {/* 欢迎文字 */}
+            <div className="text-2xl text-[#1a1a1a] tracking-wide mb-8">
+              你好，我是SmartCardAgent
+            </div>
+            {/* 输入框 */}
+            <ChatInput
+              onSend={handleSendMessage}
+              disabled={false}
+            />
           </div>
-        </div>
+        )}
       </div>
     );
   };
