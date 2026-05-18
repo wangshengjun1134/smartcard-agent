@@ -8,6 +8,7 @@ import { ChatHeader } from './components/Chat/ChatHeader';
 import { KnowledgeBase } from './components/Pages/KnowledgeBase';
 import { SkillsBase } from './components/Pages/SkillsBase';
 import { ThemeProvider } from './contexts/ThemeContext';
+import iconImage from './images/icon.png';
 
 function App() {
   const [currentView, setCurrentView] = useState<ViewType>('chat');
@@ -105,9 +106,7 @@ function App() {
           <div className="flex-1 flex flex-col items-center justify-center">
             {/* 欢迎图标 */}
             <div className="mb-4">
-              <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ stroke: '#5870f6' }}>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-              </svg>
+              <img src={iconImage} alt="SmartCardAgent" className="w-16 h-16" />
             </div>
             {/* 欢迎文字 */}
             <div className="text-2xl text-[#1a1a1a] tracking-wide mb-8">
