@@ -549,6 +549,12 @@
   box-shadow: 0 0 8px rgba(75, 110, 243, 0.3);
 }
 
+/* 正在拖拽的元素 */
+.file-icon-item.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+}
+
 /* 文件图标 */
 .file-icon {
   width: 48px;

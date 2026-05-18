@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { FileNode } from '../../types/file';
 import { FileIconItem } from './FileIconItem';
 
@@ -19,10 +20,14 @@ export function FileGridView({
   onDoubleClick,
   onMoveFile
 }: FileGridViewProps) {
+  // 拖拽状态：记录当前正在拖拽的文件
+  const [draggingFileId, setDraggingFileId] = useState<string | null>(null);
+
   // 拖拽放置处理
   const handleDrop = (draggedFile: FileNode, targetFolder: FileNode) => {
     console.log(`Move ${draggedFile.name} to folder ${targetFolder.name}`);
     onMoveFile?.(draggedFile, targetFolder);
+    setDraggingFileId(null);
   };
 
   return (
@@ -34,6 +39,9 @@ export function FileGridView({
           onClick={onFileClick}
           onDoubleClick={onDoubleClick}
           selected={selectedFileId === file.id}
+          isDragging={draggingFileId === file.id}
+          onDragStart={() => setDraggingFileId(file.id)}
+          onDragEnd={() => setDraggingFileId(null)}
           onDrop={handleDrop}
         />
       ))}

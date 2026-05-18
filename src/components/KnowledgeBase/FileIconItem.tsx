@@ -7,7 +7,8 @@ interface FileIconItemProps {
   onClick: (file: FileNode) => void;
   onDoubleClick?: (file: FileNode) => void;
   selected?: boolean;
-  onDragStart?: (file: FileNode) => void;
+  isDragging?: boolean;
+  onDragStart?: () => void;
   onDragEnd?: () => void;
   onDrop?: (draggedFile: FileNode, targetFolder: FileNode) => void;
 }
@@ -21,6 +22,7 @@ export function FileIconItem({
   onClick,
   onDoubleClick,
   selected = false,
+  isDragging = false,
   onDragStart,
   onDragEnd,
   onDrop,
@@ -37,7 +39,7 @@ export function FileIconItem({
       isFolder: file.isFolder
     }));
     e.dataTransfer.effectAllowed = 'move';
-    onDragStart?.(file);
+    onDragStart?.();
   };
 
   // 结束拖拽
@@ -81,8 +83,8 @@ export function FileIconItem({
         const data = e.dataTransfer.getData('application/json');
         if (data) {
           const draggedFile = JSON.parse(data) as FileNode;
-          if (draggedFile.id !== file.id && !draggedFile.isFolder) {
-            // 只允许文件拖入文件夹，不允许文件夹拖入文件夹
+          // 不能拖到自己，不能拖到自己的子文件夹
+          if (draggedFile.id !== file.id && !draggedFile.path.startsWith(file.path + '/')) {
             onDrop?.(draggedFile, file);
           }
         }
@@ -97,6 +99,7 @@ export function FileIconItem({
     'file-icon-item',
     selected ? 'selected' : '',
     isDragOver ? 'drag-over' : '',
+    isDragging ? 'dragging' : '',
   ].filter(Boolean).join(' ');
 
   return (
