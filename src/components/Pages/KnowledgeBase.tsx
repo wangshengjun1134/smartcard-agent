@@ -110,9 +110,18 @@ export function KnowledgeBase() {
 
   // 返回上级文件夹
   const handleGoBack = () => {
-    const parts = currentPath.split('/').filter(Boolean);
+    // 去掉 "/docs" 前缀，获取实际路径部分
+    const normalizedPath = currentPath.replace(/^\/docs/, '');
+    const parts = normalizedPath.split('/').filter(Boolean);
     parts.pop();
-    setCurrentPath(parts.length > 0 ? '/' + parts.join('/') : '');
+
+    // 如果返回到根目录（parts 为空），设置 currentPath 为空字符串
+    if (parts.length === 0) {
+      setCurrentPath('');
+    } else {
+      // 否则重新构建完整路径
+      setCurrentPath('/docs/' + parts.join('/'));
+    }
   };
 
   // 点击面包屑导航
