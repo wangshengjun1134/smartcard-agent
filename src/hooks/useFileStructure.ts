@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FileNode } from '../types/file';
-import { mockFileStructure, delay } from '../mocks/fileData';
+import { getApiUrl, API_CONFIG } from '../config/api';
 
 interface UseFileStructureReturn {
   fileStructure: FileNode[];
@@ -11,7 +11,7 @@ interface UseFileStructureReturn {
 
 /**
  * 获取和管理文件结构数据的 Hook
- * 初期使用 Mock 数据，预留 API 集成接口
+ * 从后端 API 获取真实的文件树数据
  */
 export function useFileStructure(): UseFileStructureReturn {
   const [fileStructure, setFileStructure] = useState<FileNode[]>([]);
@@ -24,16 +24,23 @@ export function useFileStructure(): UseFileStructureReturn {
     setError(null);
 
     try {
-      // 模拟 API 延迟
-      await delay(300);
+      const response = await fetch(getApiUrl(API_CONFIG.endpoints.files.tree));
 
-      // 使用 Mock 数据
-      // TODO: 后期替换为真实 API 调用
-      // const response = await fetch('/api/knowledge-base/structure');
-      // const data = await response.json();
-      setFileStructure(mockFileStructure);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (data.status === 'ok' && Array.isArray(data.data)) {
+        setFileStructure(data.data);
+      } else {
+        throw new Error('Invalid API response format');
+      }
     } catch (err) {
+      console.error('Failed to fetch file structure:', err);
       setError(err instanceof Error ? err : new Error('获取文件结构失败'));
+      // 保留现有数据，避免因错误清空
     } finally {
       setLoading(false);
     }

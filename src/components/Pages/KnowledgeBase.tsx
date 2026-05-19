@@ -2,7 +2,8 @@ import { useState, useMemo, useCallback } from 'react';
 import { ViewMode, FileNode } from '../../types/file';
 import { KnowledgeFormData } from '../../types/knowledge';
 import { useFileStructure } from '../../hooks/useFileStructure';
-import { mockUploadKnowledge } from '../../hooks/useFileUpload';
+import { useFileUpload } from '../../hooks/useFileUpload';
+import { useFileOperations } from '../../hooks/useFileOperations';
 import { KnowledgeBaseHeader } from '../KnowledgeBase/KnowledgeBaseHeader';
 import { FileGridView } from '../KnowledgeBase/FileGridView';
 import { FileTreeView } from '../KnowledgeBase/FileTreeView';
@@ -29,6 +30,12 @@ export function KnowledgeBase() {
 
   // 获取文件结构数据
   const { fileStructure, loading, error, refresh } = useFileStructure();
+
+  // 文件上传 Hook
+  const { uploadState, uploadFile } = useFileUpload();
+
+  // 文件操作 Hook
+  const { createFolder, moveFile } = useFileOperations();
 
   // 根据当前路径获取当前显示的文件列表
   const currentFiles = useMemo(() => {
@@ -143,21 +150,44 @@ export function KnowledgeBase() {
 
   // 处理知识上传
   const handleKnowledgeSubmit = useCallback(
-    async (file: File, data: KnowledgeFormData) => {
+    async (file: File, _data: KnowledgeFormData) => {
       try {
-        await mockUploadKnowledge(file, data);
-        // 上传成功后刷新文件列表
-        refresh();
+        // 查找当前目录的 parent_id
+        let parentId: string | undefined = undefined;
+        if (currentPath) {
+          const findFolder = (nodes: FileNode[], path: string): FileNode | null => {
+            for (const node of nodes) {
+              if (node.path === path && node.isFolder) {
+                return node;
+              }
+              if (node.children) {
+                const found = findFolder(node.children, path);
+                if (found) return found;
+              }
+            }
+            return null;
+          };
+          const currentFolder = findFolder(fileStructure, currentPath);
+          parentId = currentFolder?.id;
+        }
+
+        const result = await uploadFile(file, parentId);
+        if (result) {
+          // 上传成功后刷新文件列表
+          refresh();
+        } else {
+          throw new Error(uploadState.error?.message || '上传失败');
+        }
       } catch (error) {
         console.error('Upload failed:', error);
         throw error;
       }
     },
-    [refresh]
+    [uploadFile, uploadState, currentPath, fileStructure, refresh]
   );
 
   // 新建文件夹
-  const handleCreateFolder = useCallback(() => {
+  const handleCreateFolder = useCallback(async () => {
     // 生成文件夹名称
     const generateFolderName = (existingNames: string[]): string => {
       const baseName = '新建文件夹';
@@ -177,20 +207,41 @@ export function KnowledgeBase() {
       .map(f => f.name);
 
     const newFolderName = generateFolderName(existingNames);
-    console.log('Creating folder:', newFolderName, 'at path:', currentPath || '/docs');
-    
-    // TODO: 调用后端 API 创建文件夹
-    // 目前仅打印日志，刷新后不会保留
-    refresh();
-  }, [currentFiles, currentPath, refresh]);
+
+    // 查找当前目录的 parent_id
+    let parentId: string | undefined = undefined;
+    if (currentPath) {
+      const findFolder = (nodes: FileNode[], path: string): FileNode | null => {
+        for (const node of nodes) {
+          if (node.path === path && node.isFolder) {
+            return node;
+          }
+          if (node.children) {
+            const found = findFolder(node.children, path);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      const currentFolder = findFolder(fileStructure, currentPath);
+      parentId = currentFolder?.id;
+    }
+
+    // 调用后端 API 创建文件夹
+    const result = await createFolder(newFolderName, parentId);
+    if (result) {
+      refresh();
+    }
+  }, [currentFiles, currentPath, fileStructure, createFolder, refresh]);
 
   // 拖拽移动文件
-  const handleMoveFile = useCallback((draggedFile: FileNode, targetFolder: FileNode) => {
-    console.log(`Moving ${draggedFile.name} to folder ${targetFolder.name}`);
-    // TODO: 调用后端 API 移动文件
-    // 目前仅打印日志，刷新后不会保留
-    refresh();
-  }, [refresh]);
+  const handleMoveFile = useCallback(async (draggedFile: FileNode, targetFolder: FileNode) => {
+    // 调用后端 API 移动文件
+    const result = await moveFile(draggedFile.id, targetFolder.id);
+    if (result) {
+      refresh();
+    }
+  }, [moveFile, refresh]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0">

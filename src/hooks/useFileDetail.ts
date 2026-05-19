@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FileDetail } from '../types/file';
-import { getMockFileDetail, delay } from '../mocks/fileData';
+import { getApiUrl, API_CONFIG } from '../config/api';
 
 interface UseFileDetailReturn {
   detail: FileDetail | null;
@@ -9,19 +9,19 @@ interface UseFileDetailReturn {
 }
 
 /**
- * 获取文件详情和向量分片的 Hook
- * 初期使用 Mock 数据，预留 API 集成接口
+ * 文件详情 Hook
+ * 获取单个文件的详细信息
+ * @param fileId 文件 ID
  */
 export function useFileDetail(fileId: string): UseFileDetailReturn {
   const [detail, setDetail] = useState<FileDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // 获取文件详情数据
-  const fetchData = useCallback(async (id: string) => {
+  // 获取文件详情
+  const fetchDetail = useCallback(async (id: string) => {
     if (!id) {
       setDetail(null);
-      setLoading(false);
       return;
     }
 
@@ -29,26 +29,34 @@ export function useFileDetail(fileId: string): UseFileDetailReturn {
     setError(null);
 
     try {
-      // 模拟 API 延迟
-      await delay(200);
+      const response = await fetch(getApiUrl(API_CONFIG.endpoints.files.detail(id)));
 
-      // 使用 Mock 数据
-      // TODO: 后期替换为真实 API 调用
-      // const response = await fetch(`/api/knowledge-base/file/${id}`);
-      // const data = await response.json();
-      const data = getMockFileDetail(id);
-      setDetail(data);
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('文件不存在');
+        }
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (data.status === 'ok' && data.data) {
+        setDetail(data.data as FileDetail);
+      } else {
+        throw new Error('Invalid API response format');
+      }
     } catch (err) {
+      console.error('Failed to fetch file detail:', err);
       setError(err instanceof Error ? err : new Error('获取文件详情失败'));
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // fileId 变化时重新获取数据
+  // fileId 变化时重新获取
   useEffect(() => {
-    fetchData(fileId);
-  }, [fileId, fetchData]);
+    fetchDetail(fileId);
+  }, [fileId, fetchDetail]);
 
   return {
     detail,

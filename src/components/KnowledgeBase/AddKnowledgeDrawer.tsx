@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { KnowledgeFormData, DEFAULT_FORM_DATA } from '../../types/knowledge';
-import { useFileUpload } from '../../hooks/useFileUpload';
+import { useFileSelection } from '../../hooks/useFileSelection';
 import { useFormValidation } from '../../hooks/useFormValidation';
 import { FileUploadZone } from './FileUploadZone';
 import { KnowledgeForm } from './KnowledgeForm';
@@ -21,7 +21,7 @@ export function AddKnowledgeDrawer({
   onSubmit,
 }: AddKnowledgeDrawerProps) {
   // 文件上传状态
-  const { file, fileHash, isCalculatingHash, selectFile, clearFile } = useFileUpload();
+  const { file, fileHash, isCalculatingHash, selectFile, clearFile } = useFileSelection();
 
   // 表单数据状态
   const [formData, setFormData] = useState<KnowledgeFormData>(DEFAULT_FORM_DATA);

@@ -1,81 +1,97 @@
 import { useState, useCallback } from 'react';
-import { UploadResponse } from '../types/knowledge';
+import { FileNode } from '../types/file';
+import { getApiUrl, API_CONFIG, FILE_UPLOAD_CONSTRAINTS } from '../config/api';
 
-/**
- * 计算文件 SHA-256 哈希
- */
-async function calculateHash(file: File): Promise<string> {
-  const arrayBuffer = await file.arrayBuffer();
-  const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-  return hashHex;
+interface UploadState {
+  uploading: boolean;
+  progress: number; // 0-100
+  error: Error | null;
 }
 
 interface UseFileUploadReturn {
-  file: File | null;
-  fileHash: string;
-  isCalculatingHash: boolean;
-  selectFile: (file: File) => void;
-  clearFile: () => void;
+  uploadState: UploadState;
+  uploadFile: (file: File, parentId?: string) => Promise<FileNode | null>;
 }
 
 /**
  * 文件上传 Hook
- * 处理文件选择和哈希计算
+ * 处理文件上传到知识库的后端 API 调用
  */
 export function useFileUpload(): UseFileUploadReturn {
-  const [file, setFile] = useState<File | null>(null);
-  const [fileHash, setFileHash] = useState<string>('');
-  const [isCalculatingHash, setIsCalculatingHash] = useState(false);
+  const [uploadState, setUploadState] = useState<UploadState>({
+    uploading: false,
+    progress: 0,
+    error: null,
+  });
 
-  // 选择文件
-  const selectFile = useCallback(async (selectedFile: File) => {
-    setFile(selectedFile);
-    setFileHash('');
-    setIsCalculatingHash(true);
+  // 验证文件
+  const validateFile = (file: File): Error | null => {
+    // 检查文件大小
+    const maxSizeBytes = FILE_UPLOAD_CONSTRAINTS.maxFileSizeMB * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+      return new Error(`文件大小超过限制 (${FILE_UPLOAD_CONSTRAINTS.maxFileSizeMB}MB)`);
+    }
+
+    // 检查文件扩展名
+    const fileName = file.name.toLowerCase();
+    const ext = fileName.slice(fileName.lastIndexOf('.'));
+    if (!FILE_UPLOAD_CONSTRAINTS.allowedExtensions.includes(ext)) {
+      return new Error(`不支持的文件类型: ${ext}`);
+    }
+
+    return null;
+  };
+
+  // 上传文件
+  const uploadFile = useCallback(async (file: File, parentId?: string): Promise<FileNode | null> => {
+    // 验证文件
+    const validationError = validateFile(file);
+    if (validationError) {
+      setUploadState({ uploading: false, progress: 0, error: validationError });
+      return null;
+    }
+
+    setUploadState({ uploading: true, progress: 0, error: null });
 
     try {
-      const hash = await calculateHash(selectedFile);
-      setFileHash(hash);
-    } catch (error) {
-      console.error('Failed to calculate hash:', error);
-      setFileHash('');
-    } finally {
-      setIsCalculatingHash(false);
+      // 构建 FormData
+      const formData = new FormData();
+      formData.append('file', file);
+      if (parentId) {
+        formData.append('parent_id', parentId);
+      }
+
+      // 发送上传请求
+      const response = await fetch(getApiUrl(API_CONFIG.endpoints.files.upload), {
+        method: 'POST',
+        body: formData,
+      });
+
+      setUploadState({ uploading: true, progress: 100, error: null });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Upload failed' }));
+        throw new Error(errorData.detail || `上传失败: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.status === 'ok' && data.data) {
+        setUploadState({ uploading: false, progress: 100, error: null });
+        return data.data as FileNode;
+      } else {
+        throw new Error('Invalid API response format');
+      }
+    } catch (err) {
+      console.error('Upload failed:', err);
+      const error = err instanceof Error ? err : new Error('上传失败');
+      setUploadState({ uploading: false, progress: 0, error });
+      return null;
     }
   }, []);
 
-  // 清除文件
-  const clearFile = useCallback(() => {
-    setFile(null);
-    setFileHash('');
-    setIsCalculatingHash(false);
-  }, []);
-
   return {
-    file,
-    fileHash,
-    isCalculatingHash,
-    selectFile,
-    clearFile,
-  };
-}
-
-/**
- * Mock 上传函数 (预留 API 集成)
- */
-export async function mockUploadKnowledge(
-  _file: File,
-  _metadata: object
-): Promise<UploadResponse> {
-  // 模拟上传延迟
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-
-  // 模拟成功响应
-  return {
-    success: true,
-    file_id: `file-${Date.now()}`,
-    message: '上传成功',
+    uploadState,
+    uploadFile,
   };
 }

@@ -1,55 +1,67 @@
 #!/usr/bin/env python3
 """
-Smartcard Knowledge Base Service - Tauri Sidecar Entry Point.
+Smartcard Knowledge Base Service - FastAPI Entry Point.
 
-This module provides the entry point for the Python service that runs as a
-Tauri sidecar process. It communicates with the main Tauri application via
-stdio or HTTP.
+This module provides the HTTP API entry point for the Python service that runs
+as a standalone HTTP server, communicating with the frontend via REST API.
 """
 
-import json
 import sys
-from typing import Any
+import os
+
+# Add src directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from api import files
+from utils.database import init_database
 
 
-def process_request(request: dict[str, Any]) -> dict[str, Any]:
-    """Process a request from the Tauri application.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler.
 
-    Args:
-        request: The request payload from Tauri.
+    Initializes database on startup.
+    """
+    # Initialize database on startup
+    init_database()
+    yield
+
+
+app = FastAPI(
+    title="Smartcard Knowledge Base Service",
+    description="Python backend service for knowledge base file management",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+# CORS configuration for development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins in development
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include file API router
+app.include_router(files.router, prefix="/api/files")
+
+
+# Health check endpoint
+@app.get("/health")
+async def health_check() -> dict:
+    """Health check endpoint.
 
     Returns:
-        The response payload to send back to Tauri.
+        Status information.
     """
-    command = request.get("command", "")
-
-    if command == "ping":
-        return {"status": "ok", "message": "pong"}
-    elif command == "version":
-        return {"status": "ok", "version": "0.1.0"}
-    elif command == "query":
-        # Placeholder for knowledge base query
-        query = request.get("query", "")
-        return {"status": "ok", "result": f"Query result for: {query}"}
-    else:
-        return {"status": "error", "message": f"Unknown command: {command}"}
-
-
-def main() -> None:
-    """Main entry point for the sidecar service.
-
-    Reads JSON requests from stdin and writes JSON responses to stdout.
-    """
-    # Simple stdio communication loop
-    for line in sys.stdin:
-        try:
-            request = json.loads(line.strip())
-            response = process_request(request)
-            print(json.dumps(response), flush=True)
-        except json.JSONDecodeError as e:
-            error_response = {"status": "error", "message": f"Invalid JSON: {e}"}
-            print(json.dumps(error_response), flush=True)
+    return {"status": "ok", "service": "knowledge-base", "version": "0.1.0"}
 
 
 if __name__ == "__main__":
-    main()
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)
