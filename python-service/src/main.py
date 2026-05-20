@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import files
+from api import files, rag
 from utils.database import init_database
 
 
@@ -49,6 +49,9 @@ app.add_middleware(
 
 # Include file API router
 app.include_router(files.router, prefix="/api/files")
+
+# Include RAG API router
+app.include_router(rag.router, prefix="/api")
 
 
 # Health check endpoint
