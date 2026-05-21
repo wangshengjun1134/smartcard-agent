@@ -1,0 +1,1 @@
+"""Exploratory skills - card capability discovery."""

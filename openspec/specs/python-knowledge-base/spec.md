@@ -26,7 +26,7 @@ Python 知识库服务规格。
 
 #### Scenario: 验证模块结构
 - **WHEN** 检查 `python-service/src/` 目录
-- **THEN** 包含 `api/`、`models/`、`services/`、`utils/` 子目录和 `__init__.py`
+- **THEN** 包含 `api/`、`agents/`、`skills/`、`apdu/`、`tools/`、`runtime/`、`models/`、`services/`、`llm/`、`vectordb/`、`utils/` 子目录和 `__init__.py`
 
 ### Requirement: Tauri Sidecar 入口
 
@@ -43,3 +43,19 @@ Python 知识库服务规格。
 #### Scenario: 验证格式化工具配置
 - **WHEN** 检查 `python-service/pyproject.toml` 的工具配置
 - **THEN** 包含 `[tool.black]`、`[tool.isort]`、`[tool.ruff]` 配置
+
+### Requirement: Agent API 接口
+
+系统 SHALL 新增 Agent 对话 API 接口 `/api/agent/chat`，接收用户输入返回 Agent 响应。
+
+#### Scenario: Agent 对话请求
+- **WHEN** POST /api/agent/chat body = {"message": "读取 IMSI"}
+- **THEN** 返回 Agent 响应包含执行结果或知识库答案
+
+### Requirement: Agent 模块依赖
+
+系统 SHALL 在 pyproject.toml 新增依赖：langgraph, pyscard, pydantic。
+
+#### Scenario: 验证新增依赖
+- **WHEN** 检查 pyproject.toml dependencies
+- **THEN** 包含 langgraph, pyscard, pydantic

@@ -16,9 +16,12 @@ dependencies = [
     "langchain>=0.3.0",
     "langchain-community>=0.3.0",
     "langchain-openai>=0.2.0",
+    "langgraph>=0.2.0",
     "qdrant-client>=1.10.0",
     "langchain-qdrant>=0.3.0",
     "sentence-transformers>=2.2.0",
+    "pyscard>=2.0.0",
+    "pydantic>=2.0.0",
 ]
 
 [project.optional-dependencies]
