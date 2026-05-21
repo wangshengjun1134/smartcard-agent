@@ -1,26 +1,16 @@
 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <!-- 左上 -->
-    <rect x="4" y="4" width="6" height="6" rx="1.2" stroke="#1a2bff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="4.667" y="4.667" width="6" height="6" rx="1.2" stroke="#1a2bff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 
-    <!-- 右上（切掉右上角） -->
-    <path
-        d="M15 4
-           H17
-           L20 7
-           V10
-           H14
-           V5
-           A1.2 1.2 0 0 1 15 4
-           Z"
-        stroke="#1a2bff"
-        stroke-width="1.6"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-    />
+    <!-- 右上（>_ 符号，左边缘对齐右下方块） -->
+    <g stroke="#1a2bff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6">
+        <path d="M13.333 6 L15.333 8 L13.333 10" fill="none" />
+        <line x1="16.333" y1="10" x2="19.333" y2="10" />
+    </g>
 
     <!-- 左下 -->
-    <rect x="4" y="14" width="6" height="6" rx="1.2" stroke="#1a2bff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="4.667" y="13.333" width="6" height="6" rx="1.2" stroke="#1a2bff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 
     <!-- 右下 -->
-    <rect x="14" y="14" width="6" height="6" rx="1.2" stroke="#1a2bff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="13.333" y="13.333" width="6" height="6" rx="1.2" stroke="#1a2bff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
