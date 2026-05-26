@@ -123,6 +123,7 @@ def get_graph() -> Any:
     Returns:
         Compiled LangGraph instance.
     """
+    global _graph
     if _graph is None:
         _graph = compile_workflow()
     return _graph

@@ -234,6 +234,7 @@ def get_registry() -> SkillRegistry:
     Returns:
         Global SkillRegistry instance.
     """
+    global _global_registry
     if _global_registry is None:
         _global_registry = SkillRegistry()
     return _global_registry

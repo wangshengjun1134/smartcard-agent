@@ -8,6 +8,7 @@ import { ChatHeader } from './components/Chat/ChatHeader';
 import { KnowledgeBase } from './components/Pages/KnowledgeBase';
 import { SkillsBase } from './components/Pages/SkillsBase';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { getApiUrl, API_CONFIG, DEFAULT_HEADERS } from './config/api';
 import iconImage from './images/icon.png';
 
 function App() {
@@ -45,16 +46,40 @@ function App() {
     // 添加用户消息
     await addMessage(sessionId, { role: 'user', content });
 
-    // TODO: 调用后端 Agent API
-    // 模拟 AI 响应（后续替换为真实 API）
-    setTimeout(async () => {
-      if (sessionId) {
+    // 调用后端 Agent API
+    try {
+      const response = await fetch(getApiUrl(API_CONFIG.endpoints.agent.chat), {
+        method: 'POST',
+        headers: {
+          ...DEFAULT_HEADERS,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: content,
+          session_id: sessionId,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
         await addMessage(sessionId, {
           role: 'assistant',
-          content: '这是一个模拟响应。请配置后端 Agent API 以获得真实回复。',
+          content: data.response || 'Agent 返回空响应',
+        });
+      } else {
+        const errorData = await response.json();
+        await addMessage(sessionId, {
+          role: 'assistant',
+          content: `请求失败: ${errorData.detail || response.statusText}`,
         });
       }
-    }, 1000);
+    } catch (error) {
+      console.error('Agent API error:', error);
+      await addMessage(sessionId, {
+        role: 'assistant',
+        content: `网络错误: ${error instanceof Error ? error.message : '未知错误'}`,
+      });
+    }
   };
 
   if (isLoading) {

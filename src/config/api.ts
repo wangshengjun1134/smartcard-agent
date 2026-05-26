@@ -39,6 +39,11 @@ export const API_CONFIG = {
       saveApi: '/api/config/api',
       testApi: '/api/config/api/test',
     },
+    agent: {
+      chat: '/api/agent/chat',
+      status: '/api/agent/status',
+      skills: '/api/agent/skills',
+    },
     health: '/health',
   },
 };
