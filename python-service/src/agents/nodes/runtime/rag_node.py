@@ -7,9 +7,11 @@ providing context for error explanation and recovery strategies.
 from typing import Dict, Any, List
 
 from agents.graph.state import AgentState
+from agents.nodes.logging_utils import log_node_io
 from apdu.constants.sw_codes import decode_sw
 
 
+@log_node_io("runtime_rag_node")
 def runtime_rag_node(state: AgentState) -> Dict[str, Any]:
     """Runtime RAG node function.
 
@@ -144,6 +146,7 @@ Response:
     return prompt
 
 
+@log_node_io("runtime_rag_node_with_llm")
 async def runtime_rag_node_with_llm(
     state: AgentState,
     llm: Any,

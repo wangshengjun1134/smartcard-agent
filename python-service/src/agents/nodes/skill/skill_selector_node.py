@@ -7,9 +7,11 @@ from the think node.
 from typing import Dict, Any
 
 from agents.graph.state import AgentState
+from agents.nodes.logging_utils import log_node_io
 from skills.base.registry import get_skill, get_registry
 
 
+@log_node_io("skill_selector_node")
 def skill_selector_node(state: AgentState) -> Dict[str, Any]:
     """Skill selector node function.
 

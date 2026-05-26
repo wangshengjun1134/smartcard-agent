@@ -11,6 +11,7 @@ from typing import Dict, Any
 from langchain_core.prompts import ChatPromptTemplate
 
 from agents.graph.state import AgentState
+from agents.nodes.logging_utils import log_node_io
 
 
 # Intent types
@@ -42,6 +43,7 @@ INTENT_PROMPT = ChatPromptTemplate.from_template("""
 """)
 
 
+@log_node_io("intent_node")
 def intent_node(state: AgentState) -> Dict[str, Any]:
     """Intent analyzer node function.
 
@@ -136,6 +138,7 @@ def classify_intent(user_input: str) -> str:
     return INTENT_REQUIRES_CARD
 
 
+@log_node_io("intent_node_with_llm")
 async def intent_node_with_llm(state: AgentState, llm: Any) -> Dict[str, Any]:
     """Intent analyzer node using LLM.
 

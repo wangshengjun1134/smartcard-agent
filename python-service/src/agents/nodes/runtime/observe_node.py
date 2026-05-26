@@ -7,9 +7,11 @@ whether to continue, retry, or finish.
 from typing import Dict, Any, List
 
 from agents.graph.state import AgentState
+from agents.nodes.logging_utils import log_node_io
 from apdu.constants.sw_codes import SW_NORMAL, is_success, decode_sw
 
 
+@log_node_io("observe_node")
 def observe_node(state: AgentState) -> Dict[str, Any]:
     """Runtime observe node function.
 

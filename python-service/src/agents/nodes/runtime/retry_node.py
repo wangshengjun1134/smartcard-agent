@@ -6,8 +6,10 @@ This node manages retry attempts for failed operations.
 from typing import Dict, Any
 
 from agents.graph.state import AgentState
+from agents.nodes.logging_utils import log_node_io
 
 
+@log_node_io("retry_node")
 def retry_node(state: AgentState) -> Dict[str, Any]:
     """Retry node function.
 
@@ -42,6 +44,7 @@ def retry_node(state: AgentState) -> Dict[str, Any]:
     }
 
 
+@log_node_io("reconnect_retry")
 def reconnect_retry(state: AgentState) -> Dict[str, Any]:
     """Reconnect retry strategy.
 

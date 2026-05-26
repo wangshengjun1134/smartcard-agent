@@ -8,6 +8,7 @@ from typing import Dict, Any, List
 from langchain_core.prompts import ChatPromptTemplate
 
 from agents.graph.state import AgentState
+from agents.nodes.logging_utils import log_node_io
 
 
 THINK_PROMPT = ChatPromptTemplate.from_template("""
@@ -37,6 +38,7 @@ params: {"key": "value"}
 """)
 
 
+@log_node_io("think_node")
 def think_node(state: AgentState) -> Dict[str, Any]:
     """Runtime think node function.
 
@@ -106,6 +108,7 @@ def determine_next_action(
     return {"skill": "discover_card", "params": {}}
 
 
+@log_node_io("think_node_with_llm")
 async def think_node_with_llm(state: AgentState, llm: Any) -> Dict[str, Any]:
     """Think node using LLM for reasoning.
 

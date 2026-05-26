@@ -296,6 +296,14 @@
     background: var(--color-send-disabled);
   }
 
+  /* 消息列表悬停时显示滚动条 */
+  .message-list:hover ::-webkit-scrollbar-thumb {
+    background: var(--color-border-light);
+  }
+  .message-list:hover ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-send-disabled);
+  }
+
   /* 深色模式下的对话框背景 */
   .dark .bg-white {
     background-color: #222222 !important;

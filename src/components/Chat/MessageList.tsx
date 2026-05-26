@@ -40,7 +40,8 @@ export function MessageList({ messages, isLoading, hasSession }: MessageListProp
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-y-auto"
+      className="flex-1 overflow-y-auto min-h-0 message-list"
+      style={{ maxHeight: '100%' }}
     >
       <div className="max-w-[700px] mx-auto px-5 py-4">
         {messages.map((message) => (

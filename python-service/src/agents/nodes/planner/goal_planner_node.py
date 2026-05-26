@@ -9,6 +9,7 @@ from typing import Dict, Any
 from langchain_core.prompts import ChatPromptTemplate
 
 from agents.graph.state import AgentState
+from agents.nodes.logging_utils import log_node_io
 from agents.nodes.intent.intent_node import (
     INTENT_KNOWLEDGE_ONLY,
     INTENT_REQUIRES_CARD,
@@ -72,6 +73,7 @@ GOAL_PROMPT = ChatPromptTemplate.from_template("""
 """)
 
 
+@log_node_io("goal_planner_node")
 def goal_planner_node(state: AgentState) -> Dict[str, Any]:
     """Goal planner node function.
 
@@ -130,6 +132,7 @@ def determine_goal(user_input: str) -> str:
     return "knowledge_query"
 
 
+@log_node_io("goal_planner_node_with_llm")
 async def goal_planner_node_with_llm(state: AgentState, llm: Any) -> Dict[str, Any]:
     """Goal planner node using LLM.
 

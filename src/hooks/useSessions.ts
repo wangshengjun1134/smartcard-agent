@@ -60,19 +60,32 @@ function toGroup(res: GroupResponse): Group {
   };
 }
 
-// API helper functions
-async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...DEFAULT_HEADERS,
-      ...options?.headers,
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
+// API helper functions with retry
+async function fetchJson<T>(url: string, options?: RequestInit, retries = 3): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...DEFAULT_HEADERS,
+          ...options?.headers,
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      return response.json();
+    } catch (error) {
+      if (i < retries - 1) {
+        // Wait before retrying (wait longer each time)
+        await new Promise(resolve => setTimeout(resolve, 500 * (i + 1)));
+        console.log(`Retrying API request (${i + 1}/${retries}): ${url}`);
+      } else {
+        throw error;
+      }
+    }
   }
-  return response.json();
+  throw new Error('Max retries exceeded');
 }
 
 export function useSessions() {

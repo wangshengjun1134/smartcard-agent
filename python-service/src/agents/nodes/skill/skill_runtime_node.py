@@ -6,9 +6,11 @@ This node executes the selected skill and records the results.
 from typing import Dict, Any
 
 from agents.graph.state import AgentState
+from agents.nodes.logging_utils import log_node_io
 from skills.base.base_skill import SkillResult
 
 
+@log_node_io("skill_runtime_node")
 async def skill_runtime_node(state: AgentState) -> Dict[str, Any]:
     """Skill runtime node function.
 

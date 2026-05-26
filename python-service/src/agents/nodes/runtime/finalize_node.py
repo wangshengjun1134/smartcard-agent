@@ -8,6 +8,7 @@ from typing import Dict, Any, List
 from langchain_core.prompts import ChatPromptTemplate
 
 from agents.graph.state import AgentState
+from agents.nodes.logging_utils import log_node_io
 from apdu.constants.sw_codes import decode_sw
 
 
@@ -29,6 +30,7 @@ FINALIZE_PROMPT = ChatPromptTemplate.from_template("""
 """)
 
 
+@log_node_io("finalize_node")
 def finalize_node(state: AgentState) -> Dict[str, Any]:
     """Finalize node function.
 
@@ -215,6 +217,7 @@ def generate_generic_response(goal: str, observations: List[Dict[str, Any]]) -> 
     return f"操作 '{goal}' 完成，成功执行 {success_count} 个步骤。"
 
 
+@log_node_io("finalize_node_with_llm")
 async def finalize_node_with_llm(state: AgentState, llm: Any) -> Dict[str, Any]:
     """Finalize node using LLM for response generation.
 

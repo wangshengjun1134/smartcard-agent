@@ -113,7 +113,7 @@ function App() {
         {hasMessages ? (
           <>
             {/* 消息列表 */}
-            <div className="flex-1 overflow-hidden min-h-0">
+            <div className="flex-1 min-h-0 flex flex-col">
               <MessageList
                 messages={currentSession?.messages || []}
                 isLoading={false}
@@ -121,7 +121,7 @@ function App() {
               />
             </div>
             {/* 输入区域 - 底部 */}
-            <div className="flex flex-col items-center pb-3">
+            <div className="flex flex-col items-center pb-3 shrink-0">
               <ChatInput
                 onSend={handleSendMessage}
                 disabled={false}
