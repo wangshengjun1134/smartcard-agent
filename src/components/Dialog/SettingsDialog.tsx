@@ -110,7 +110,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           setAccountSettings({
             provider: data.provider as Provider,
             baseUrl: data.base_url,
-            apiKey: '', // API Key 从后端返回时已脱敏，用户需要重新输入
+            apiKey: data.api_key, // 显示脱敏后的 API key
             model: data.model || '',
           });
         }
