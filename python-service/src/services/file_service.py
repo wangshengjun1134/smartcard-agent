@@ -18,7 +18,7 @@ from models.file import (
     detect_file_type,
     get_mime_type,
 )
-from utils.database import get_db_connection, get_storage_path
+from utils.database import get_knowledge_db_connection, get_storage_path
 
 
 class FileService:
@@ -49,7 +49,7 @@ class FileService:
         if parent_id is None:
             return name
 
-        conn = get_db_connection()
+        conn = get_knowledge_db_connection()
         cursor = conn.cursor()
         cursor.execute(
             "SELECT storage_path FROM files WHERE id = ? AND status = 'active'",
@@ -90,7 +90,7 @@ class FileService:
         Returns:
             Unique name.
         """
-        conn = get_db_connection()
+        conn = get_knowledge_db_connection()
         cursor = conn.cursor()
 
         # Check if name exists
@@ -135,7 +135,7 @@ class FileService:
         Returns:
             List of FileNode objects.
         """
-        conn = get_db_connection()
+        conn = get_knowledge_db_connection()
         cursor = conn.cursor()
 
         # Handle NULL parent_id for root level
@@ -193,7 +193,7 @@ class FileService:
         Returns:
             FileDetail object or None if not found.
         """
-        conn = get_db_connection()
+        conn = get_knowledge_db_connection()
         cursor = conn.cursor()
         cursor.execute(
             "SELECT * FROM files WHERE id = ? AND status = 'active'",
@@ -247,7 +247,7 @@ class FileService:
         Returns:
             FileRecord or None.
         """
-        conn = get_db_connection()
+        conn = get_knowledge_db_connection()
         cursor = conn.cursor()
         cursor.execute(
             "SELECT * FROM files WHERE id = ? AND status = 'active'",
@@ -318,7 +318,7 @@ class FileService:
             await f.write(file_content)
 
         # Save to database
-        conn = get_db_connection()
+        conn = get_knowledge_db_connection()
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -375,7 +375,7 @@ class FileService:
         disk_path.mkdir(parents=True, exist_ok=True)
 
         # Save to database
-        conn = get_db_connection()
+        conn = get_knowledge_db_connection()
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -409,7 +409,7 @@ class FileService:
         Returns:
             List of all descendant IDs.
         """
-        conn = get_db_connection()
+        conn = get_knowledge_db_connection()
         cursor = conn.cursor()
 
         # Get direct children
@@ -479,7 +479,7 @@ class FileService:
 
         # Update database
         timestamp = self._get_timestamp()
-        conn = get_db_connection()
+        conn = get_knowledge_db_connection()
         cursor = conn.cursor()
 
         # Update the file itself

@@ -16,18 +16,19 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import files, rag, agent
-from utils.database import init_database
+from api import files, rag, agent, session
+from utils.database import init_knowledge_database, init_session_database
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler.
 
-    Initializes database on startup.
+    Initializes databases on startup.
     """
-    # Initialize database on startup
-    init_database()
+    # Initialize databases on startup
+    init_knowledge_database()
+    init_session_database()
     yield
 
 
@@ -55,6 +56,9 @@ app.include_router(rag.router, prefix="/api")
 
 # Include Agent API router
 app.include_router(agent.router, prefix="/api")
+
+# Include Session API router
+app.include_router(session.router, prefix="/api")
 
 
 # Health check endpoint
