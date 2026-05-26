@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import files, rag, agent, session
+from api import files, rag, agent, session, config
 from utils.database import init_knowledge_database, init_session_database
 
 
@@ -59,6 +59,9 @@ app.include_router(agent.router, prefix="/api")
 
 # Include Session API router
 app.include_router(session.router, prefix="/api")
+
+# Include Config API router
+app.include_router(config.router, prefix="/api")
 
 
 # Health check endpoint

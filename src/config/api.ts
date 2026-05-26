@@ -34,6 +34,11 @@ export const API_CONFIG = {
       updateGroup: (groupId: string) => `/api/session/groups/${groupId}`,
       deleteGroup: (groupId: string) => `/api/session/groups/${groupId}`,
     },
+    config: {
+      getApi: '/api/config/api',
+      saveApi: '/api/config/api',
+      testApi: '/api/config/api/test',
+    },
     health: '/health',
   },
 };

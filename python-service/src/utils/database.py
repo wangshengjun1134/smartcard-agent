@@ -149,6 +149,19 @@ def init_session_database(db_path: Optional[Path] = None) -> None:
         )
     """)
 
+    # Create api_config table for storing LLM provider settings
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS api_config (
+            id TEXT PRIMARY KEY,
+            provider TEXT NOT NULL,
+            base_url TEXT NOT NULL,
+            api_key TEXT NOT NULL,
+            model TEXT,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )
+    """)
+
     # Create indexes
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_group_id ON sessions(group_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON sessions(updated_at)")
