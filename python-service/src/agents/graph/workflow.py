@@ -46,9 +46,11 @@ def create_workflow() -> StateGraph:
 
     # Conditional routing after planner
     def route_after_planner(state: AgentState) -> Literal["finalize", "think"]:
-        """Route based on execution intent."""
-        if state["execution_intent"] == "KNOWLEDGE_ONLY":
-            return "finalize"
+        """Route based on execution goal."""
+        # If goal is knowledge_query, go through think → skill_runtime to execute RAG
+        if state["current_goal"] == "knowledge_query":
+            return "think"
+        # For other goals requiring card operations, also go to think
         return "think"
 
     workflow.add_conditional_edges(
@@ -155,10 +157,16 @@ async def run_agent_async(user_input: str) -> Dict[str, Any]:
     Returns:
         Final agent state.
     """
+    print(f"[DEBUG] run_agent_async called with input: {user_input}")
+    
     graph = get_graph()
     initial_state = create_initial_state(user_input)
+    
+    print(f"[DEBUG] Initial state created, invoking graph...")
 
     result = await graph.ainvoke(initial_state)
+    
+    print(f"[DEBUG] Graph execution completed")
 
     return result
 

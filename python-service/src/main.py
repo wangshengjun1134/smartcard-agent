@@ -24,11 +24,20 @@ from utils.database import init_knowledge_database, init_session_database
 async def lifespan(app: FastAPI):
     """Application lifespan handler.
 
-    Initializes databases on startup.
+    Initializes databases and preloads embeddings model on startup.
     """
+    import asyncio
+    from llm.embeddings import get_embeddings
+
     # Initialize databases on startup
     init_knowledge_database()
     init_session_database()
+
+    # Preload embeddings model in thread pool to avoid blocking
+    print("Preloading embeddings model...")
+    await asyncio.to_thread(get_embeddings)
+    print("Embeddings model loaded successfully")
+
     yield
 
 

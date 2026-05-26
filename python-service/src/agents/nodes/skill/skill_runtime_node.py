@@ -39,7 +39,7 @@ async def skill_runtime_node(state: AgentState) -> Dict[str, Any]:
         return handle_connect(state)
 
     if skill_name == "rag_lookup":
-        return handle_rag_lookup(state)
+        return await handle_rag_lookup(state)
 
     # Execute skill
     result = await execute_skill(skill_name, params, state)
@@ -172,7 +172,7 @@ def handle_connect(state: AgentState) -> Dict[str, Any]:
     }
 
 
-def handle_rag_lookup(state: AgentState) -> Dict[str, Any]:
+async def handle_rag_lookup(state: AgentState) -> Dict[str, Any]:
     """Handle RAG lookup action.
 
     Args:
@@ -181,18 +181,35 @@ def handle_rag_lookup(state: AgentState) -> Dict[str, Any]:
     Returns:
         State updates.
     """
-    # This would call the RAG service
-    # For now, return a mock observation
-    observation = {
-        "skill_name": "rag_lookup",
-        "params": {"query": state["user_input"]},
-        "success": True,
-        "response": "RAG lookup would be performed here.",
-    }
+    from api.rag import get_rag_service
 
-    return {
-        "observations": state["observations"] + [observation],
-    }
+    try:
+        rag_service = get_rag_service()  # 使用全局单例
+        answer = await rag_service.query(state["user_input"], k=4)
+
+        observation = {
+            "skill_name": "rag_lookup",
+            "params": {"query": state["user_input"]},
+            "success": True,
+            "response": answer,
+        }
+
+        return {
+            "observations": state["observations"] + [observation],
+            "finished": True,  # RAG lookup 完成后标记为 finished
+        }
+    except Exception as e:
+        observation = {
+            "skill_name": "rag_lookup",
+            "params": {"query": state["user_input"]},
+            "success": False,
+            "error": str(e),
+            "response": f"知识库查询失败: {str(e)}",
+        }
+        return {
+            "observations": state["observations"] + [observation],
+            "finished": True,
+        }
 
 
 def update_runtime_state(

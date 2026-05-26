@@ -54,11 +54,11 @@ class QdrantStore:
                 )
         return self._client
 
-    def _ensure_collection(self, vector_size: int = 1536) -> None:
+    def _ensure_collection(self, vector_size: int = 1024) -> None:
         """Ensure the collection exists, create if not.
 
         Args:
-            vector_size: Size of embedding vectors.
+            vector_size: Size of embedding vectors (default: 1024 for BGE-m3).
         """
         client = self._get_client()
         collections = client.get_collections().collections

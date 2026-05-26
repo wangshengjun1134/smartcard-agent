@@ -10,12 +10,18 @@ from .config import LLMConfig
 from .local_embeddings import BGEM3Embeddings, get_local_embeddings
 
 
+# Global embeddings instance cache
+_embeddings_cache: Optional[Embeddings] = None
+
+
 def get_embeddings(config: Optional[LLMConfig] = None) -> Embeddings:
-    """Get embeddings model instance.
+    """Get embeddings model instance (cached).
 
     根据配置自动选择：
     - 本地模型 (BGE-m3): 当 USE_LOCAL_EMBEDDINGS=true 或无云端 API Key
     - 云端 API (DashScope): 当有标准 DashScope API Key (sk-xxx 格式)
+
+    使用全局单例缓存，避免重复加载模型。
 
     Args:
         config: LLM configuration. If None, uses default config from env.
@@ -23,6 +29,12 @@ def get_embeddings(config: Optional[LLMConfig] = None) -> Embeddings:
     Returns:
         Embeddings instance (OpenAIEmbeddings or BGEM3Embeddings).
     """
+    global _embeddings_cache
+
+    # Return cached instance if available
+    if _embeddings_cache is not None:
+        return _embeddings_cache
+
     if config is None:
         config = LLMConfig.from_env()
 
@@ -34,7 +46,8 @@ def get_embeddings(config: Optional[LLMConfig] = None) -> Embeddings:
         print("Using local embeddings (BGE-m3)")
         device = os.getenv("EMBEDDING_DEVICE", "cpu")
         model_path = os.getenv("LOCAL_EMBEDDING_PATH")
-        return get_local_embeddings(model_path=model_path, device=device)
+        _embeddings_cache = get_local_embeddings(model_path=model_path, device=device)
+        return _embeddings_cache
 
     # 尝试使用云端 API
     api_key = config.embedding_api_key
@@ -45,15 +58,17 @@ def get_embeddings(config: Optional[LLMConfig] = None) -> Embeddings:
         print("No valid cloud embeddings API key, using local embeddings (BGE-m3)")
         device = os.getenv("EMBEDDING_DEVICE", "cpu")
         model_path = os.getenv("LOCAL_EMBEDDING_PATH")
-        return get_local_embeddings(model_path=model_path, device=device)
+        _embeddings_cache = get_local_embeddings(model_path=model_path, device=device)
+        return _embeddings_cache
 
     # 使用云端 API
     print(f"Using cloud embeddings: {config.embedding_model}")
-    return OpenAIEmbeddings(
+    _embeddings_cache = OpenAIEmbeddings(
         model=config.embedding_model,
         openai_api_key=api_key,
         openai_api_base=api_base,
     )
+    return _embeddings_cache
 
 
 def get_cloud_embeddings(config: Optional[LLMConfig] = None) -> OpenAIEmbeddings:

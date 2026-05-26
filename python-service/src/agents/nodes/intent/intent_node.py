@@ -134,8 +134,8 @@ def classify_intent(user_input: str) -> str:
     if "?" in user_input or "？" in user_input:
         return INTENT_KNOWLEDGE_ONLY
 
-    # Default: requires card (most user requests involve cards)
-    return INTENT_REQUIRES_CARD
+    # Default: knowledge query for general conversation
+    return INTENT_KNOWLEDGE_ONLY
 
 
 @log_node_io("intent_node_with_llm")
