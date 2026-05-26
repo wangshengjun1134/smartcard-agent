@@ -75,9 +75,15 @@ uv sync  # 或 pip install -e .
 ### 开发模式
 
 ```bash
-# 启动开发服务器（前端 + Tauri）
-npm run tauri dev
+# 1. 启动 Python 后端服务
+cd python-service
+python -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --reload
+
+# 2. 启动 Tauri 桌面应用（前端 + Tauri）
+npm run tauri:dev
 ```
+
+**启动顺序**：先启动 Python 后端，再启动 Tauri 桌面应用。
 
 ### 构建
 
