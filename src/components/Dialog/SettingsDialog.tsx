@@ -7,16 +7,96 @@ interface SettingsDialogProps {
 
 type SettingsTab = 'account' | 'general' | 'knowledge' | 'skills' | 'about';
 
+// 模型提供商配置
+type Provider = 'coding_plan' | 'openai' | 'deepseek' | 'anthropic';
+
+interface AccountSettings {
+  provider: Provider;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
+// 提供商默认配置
+const PROVIDER_CONFIG: Record<Provider, { name: string; defaultUrl: string; models: string[] }> = {
+  coding_plan: {
+    name: '阿里 Coding Plan',
+    defaultUrl: 'https://coding.dashscope.aliyuncs.com/v1',
+    models: [
+      'qwen3.6-plus',
+      'kimi-k2.5',
+      'glm-5',
+      'MiniMax-M2.5',
+      'qwen3.5-plus',
+      'qwen3-max-2026-01-23',
+      'qwen3-coder-next',
+      'qwen3-coder-plus',
+      'glm-4.7',
+    ],
+  },
+  openai: {
+    name: 'OpenAI',
+    defaultUrl: 'https://api.openai.com/v1',
+    models: [],
+  },
+  deepseek: {
+    name: 'DeepSeek',
+    defaultUrl: 'https://api.deepseek.com/v1',
+    models: [],
+  },
+  anthropic: {
+    name: 'Anthropic',
+    defaultUrl: 'https://api.anthropic.com/v1',
+    models: [],
+  },
+};
+
+// 支持图片理解的模型
+const VISION_MODELS = ['qwen3.6-plus', 'kimi-k2.5', 'qwen3.5-plus'];
+
 export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // 账号设置状态
+  const [accountSettings, setAccountSettings] = useState<AccountSettings>(() => {
+    const saved = localStorage.getItem('smartcard-agent-account-settings');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return { provider: 'coding_plan', baseUrl: '', apiKey: '', model: 'qwen3.5-plus' };
+      }
+    }
+    return { provider: 'coding_plan', baseUrl: '', apiKey: '', model: 'qwen3.5-plus' };
+  });
+
+  // 保存账号设置
+  useEffect(() => {
+    localStorage.setItem('smartcard-agent-account-settings', JSON.stringify(accountSettings));
+  }, [accountSettings]);
+
+  // 切换提供商时更新默认URL和清空模型选择
+  const handleProviderChange = (provider: Provider) => {
+    const config = PROVIDER_CONFIG[provider];
+    setAccountSettings(prev => ({
+      ...prev,
+      provider,
+      baseUrl: prev.baseUrl || config.defaultUrl,
+      model: config.models.length > 0 ? config.models[0] : '',
+    }));
+  };
+
+  // 切换提供商下拉框显示状态
+  const [showProviderDropdown, setShowProviderDropdown] = useState(false);
 
   // 点击外部关闭
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
         onClose();
-      }
+        setShowProviderDropdown(false);
+              }
     };
 
     if (isOpen) {
@@ -28,12 +108,35 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
     };
   }, [isOpen, onClose]);
 
+  // 点击内部关闭下拉框（非下拉框区域）
+  useEffect(() => {
+    const handleClickInside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        showProviderDropdown &&
+        !target.closest('.provider-dropdown-trigger') &&
+        !target.closest('.provider-dropdown-menu')
+      ) {
+        setShowProviderDropdown(false);
+      }
+    };
+
+    if (isOpen && showProviderDropdown) {
+      document.addEventListener('mousedown', handleClickInside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickInside);
+    };
+  }, [isOpen, showProviderDropdown]);
+
   // ESC 关闭
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
         onClose();
-      }
+        setShowProviderDropdown(false);
+              }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -182,8 +285,109 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
             )}
 
             {activeTab === 'account' && (
-              <div className="text-center text-[#999] dark:text-[#808080] py-12">
-                账号设置内容
+              <div className="space-y-0">
+                {/* 模型提供商 */}
+                <div className="flex justify-between items-center py-4 border-b border-[#f5f5f5] dark:border-[#333333] relative">
+                  <div className="flex items-center gap-3 text-[15px] text-[#1a1a1a] dark:text-white">
+                    <i className="fa-solid fa-cloud text-lg w-6 text-center text-[#888] dark:text-[#808080]"></i>
+                    模型提供商
+                  </div>
+                  <div className="relative">
+                    <div
+                      className="provider-dropdown-trigger flex items-center gap-1.5 text-sm text-[#666] dark:text-[#a0a0a0] cursor-pointer hover:text-[#1a1a1a] dark:hover:text-white bg-[#f7f8fa] dark:bg-[#333333] px-3 py-1.5 rounded-lg min-w-[160px] justify-between"
+                      onClick={() => setShowProviderDropdown(!showProviderDropdown)}
+                    >
+                      <span>{PROVIDER_CONFIG[accountSettings.provider].name}</span>
+                      <i className={`fa-solid fa-chevron-down text-xs transition-transform ${showProviderDropdown ? 'rotate-180' : ''}`}></i>
+                    </div>
+                    {showProviderDropdown && (
+                      <div className="provider-dropdown-menu absolute right-0 top-full mt-1 bg-white dark:bg-[#333333] rounded-lg shadow-lg border border-[#e5e7eb] dark:border-[#404040] py-1 z-10 min-w-[160px]">
+                        {(Object.keys(PROVIDER_CONFIG) as Provider[]).map((p) => (
+                          <div
+                            key={p}
+                            className={`px-4 py-2 text-sm cursor-pointer hover:bg-[#f7f8fa] dark:hover:bg-[#404040] ${
+                              accountSettings.provider === p
+                                ? 'text-[#4b6ef3] bg-[#f7f8fa] dark:bg-[#404040]'
+                                : 'text-[#1a1a1a] dark:text-white'
+                            }`}
+                            onClick={() => {
+                              handleProviderChange(p);
+                              setShowProviderDropdown(false);
+                            }}
+                          >
+                            {PROVIDER_CONFIG[p].name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 模型选择 - 仅阿里 Coding Plan 显示 */}
+                {accountSettings.provider === 'coding_plan' && (
+                  <div className="flex justify-between items-center py-4 border-b border-[#f5f5f5] dark:border-[#333333]">
+                    <div className="flex items-center gap-3 text-[15px] text-[#1a1a1a] dark:text-white">
+                      <i className="fa-solid fa-microchip text-lg w-6 text-center text-[#888] dark:text-[#808080]"></i>
+                      模型选择
+                    </div>
+                    <select
+                      value={accountSettings.model}
+                      onChange={(e) => setAccountSettings(prev => ({ ...prev, model: e.target.value }))}
+                      className="bg-[#f7f8fa] dark:bg-[#333333] px-3 py-1.5 rounded-lg text-sm text-[#1a1a1a] dark:text-white border-none outline-none cursor-pointer min-w-[160px]"
+                    >
+                      {PROVIDER_CONFIG.coding_plan.models.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                          {VISION_MODELS.includes(m) && ' (支持图片)'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Base URL */}
+                <div className="flex justify-between items-center py-4 border-b border-[#f5f5f5] dark:border-[#333333]">
+                  <div className="flex items-center gap-3 text-[15px] text-[#1a1a1a] dark:text-white">
+                    <i className="fa-solid fa-link text-lg w-6 text-center text-[#888] dark:text-[#808080]"></i>
+                    Base URL
+                  </div>
+                  <input
+                    type="text"
+                    value={accountSettings.baseUrl}
+                    onChange={(e) => setAccountSettings(prev => ({ ...prev, baseUrl: e.target.value }))}
+                    placeholder={PROVIDER_CONFIG[accountSettings.provider].defaultUrl}
+                    className="bg-[#f7f8fa] dark:bg-[#333333] px-3 py-1.5 rounded-lg text-sm text-[#1a1a1a] dark:text-white border-none outline-none min-w-[200px]"
+                  />
+                </div>
+
+                {/* API Key */}
+                <div className="flex justify-between items-center py-4 border-b border-[#f5f5f5] dark:border-[#333333]">
+                  <div className="flex items-center gap-3 text-[15px] text-[#1a1a1a] dark:text-white">
+                    <i className="fa-solid fa-key text-lg w-6 text-center text-[#888] dark:text-[#808080]"></i>
+                    API Key
+                  </div>
+                  <input
+                    type="password"
+                    value={accountSettings.apiKey}
+                    onChange={(e) => setAccountSettings(prev => ({ ...prev, apiKey: e.target.value }))}
+                    placeholder="sk-xxx"
+                    className="bg-[#f7f8fa] dark:bg-[#333333] px-3 py-1.5 rounded-lg text-sm text-[#1a1a1a] dark:text-white border-none outline-none min-w-[200px]"
+                  />
+                </div>
+
+                {/* 提示信息 */}
+                {accountSettings.provider === 'coding_plan' && (
+                  <div className="mt-6 p-4 bg-[#f7f8fa] dark:bg-[#333333] rounded-lg text-sm text-[#666] dark:text-[#a0a0a0]">
+                    <div className="flex items-center gap-2 mb-2">
+                      <i className="fa-solid fa-info-circle text-[#4b6ef3]"></i>
+                      <span className="text-[#1a1a1a] dark:text-white font-medium">阿里 Coding Plan API</span>
+                    </div>
+                    <p className="leading-relaxed">
+                      Coding Plan API 专用密钥格式为 sk-sp-xxx，支持多种大模型调用。
+                      带"支持图片"标识的模型可处理图片输入。
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

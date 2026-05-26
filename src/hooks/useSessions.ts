@@ -36,7 +36,7 @@ function toSession(res: SessionResponse): Session {
     createdAt: res.created_at,
     updatedAt: res.updated_at,
     messages: res.messages.map(toMessage),
-    groupId: res.group_id,
+    groupId: res.group_id ?? undefined,
     isPinned: res.is_pinned,
   };
 }
@@ -44,7 +44,7 @@ function toSession(res: SessionResponse): Session {
 function toMessage(res: MessageResponse): Message {
   return {
     id: res.id,
-    role: res.role,
+    role: res.role as 'user' | 'assistant',
     content: res.content,
     createdAt: res.created_at,
   };

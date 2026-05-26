@@ -34,24 +34,26 @@ function App() {
   } = useSessions();
 
   // 发送消息处理
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (content: string) => {
     // 如果没有当前会话，先创建一个
     let sessionId = currentSessionId;
     if (!sessionId) {
-      const newSession = createSession();
+      const newSession = await createSession();
       sessionId = newSession.id;
     }
 
     // 添加用户消息
-    addMessage(sessionId, { role: 'user', content });
+    await addMessage(sessionId, { role: 'user', content });
 
     // TODO: 调用后端 Agent API
     // 模拟 AI 响应（后续替换为真实 API）
-    setTimeout(() => {
-      addMessage(sessionId!, {
-        role: 'assistant',
-        content: '这是一个模拟响应。请配置后端 Agent API 以获得真实回复。',
-      });
+    setTimeout(async () => {
+      if (sessionId) {
+        await addMessage(sessionId, {
+          role: 'assistant',
+          content: '这是一个模拟响应。请配置后端 Agent API 以获得真实回复。',
+        });
+      }
     }, 1000);
   };
 
