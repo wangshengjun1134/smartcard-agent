@@ -4,7 +4,7 @@ This module defines the StateGraph workflow that orchestrates
 the agent nodes.
 """
 
-from typing import Literal
+from typing import Literal, Any, Dict
 from langgraph.graph import StateGraph, END
 
 from agents.graph.state import AgentState, create_initial_state

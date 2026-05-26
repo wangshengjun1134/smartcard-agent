@@ -4,7 +4,7 @@ This node analyzes the results from skill execution and determines
 whether to continue, retry, or finish.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from agents.graph.state import AgentState
 from apdu.constants.sw_codes import SW_NORMAL, is_success, decode_sw

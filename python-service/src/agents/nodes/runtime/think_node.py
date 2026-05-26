@@ -4,7 +4,7 @@ This node analyzes the current state and determines what skill
 to execute next to achieve the current goal.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, List
 from langchain_core.prompts import ChatPromptTemplate
 
 from agents.graph.state import AgentState
