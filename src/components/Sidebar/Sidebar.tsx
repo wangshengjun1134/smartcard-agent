@@ -85,10 +85,13 @@ export function Sidebar({
       // 计算总宽度（主窗口 + 控制台）
       const totalWidth = outerSize.width + consoleWidth;
 
-      // 计算整体居中位置
+      // 计算整体居中位置（左右居中）
       const centerX = monitorX + screenWidth / 2;
       const newMainX = Math.round(centerX - totalWidth / 2);
-      const mainY = position.y; // 保持当前 Y 位置
+
+      // 计算上下居中位置
+      const centerY = monitorY + screenHeight / 2;
+      const mainY = Math.round(centerY - innerSize.height / 2);
 
       // 移动主窗口到左侧
       await mainWindow.setPosition({ type: 'Physical', x: newMainX, y: mainY });
