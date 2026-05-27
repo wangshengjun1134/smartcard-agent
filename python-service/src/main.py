@@ -18,6 +18,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api import files, rag, agent, session, config
 from utils.database import init_knowledge_database, init_session_database
+from config.logging import setup_logging
+
+# Initialize logging
+setup_logging()
 
 
 @asynccontextmanager
