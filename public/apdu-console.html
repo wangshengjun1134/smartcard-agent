@@ -61,6 +61,9 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
+      background: transparent;
+      border: none;
+      outline: none;
       transition: background 0.15s;
     }
 
@@ -248,22 +251,36 @@
     <button onclick="sendManualApdu()">发送</button>
   </div>
 
-  <script src="https://unpkg.com/@tauri-apps/api@2.0.0/webviewWindow.js"></script>
   <script>
-    // 窗口控制
-    const { getCurrentWebviewWindow } = window.__TAURI__.webviewWindow;
-    const appWindow = getCurrentWebviewWindow();
+    // 窗口控制 - 使用全局 Tauri API
+    let appWindow = null;
+
+    // 等待 Tauri API 加载完成
+    function initTauri() {
+      if (window.__TAURI__ && window.__TAURI__.webviewWindow) {
+        appWindow = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
+      }
+    }
+
+    // DOM 加载完成后初始化
+    document.addEventListener('DOMContentLoaded', initTauri);
 
     async function minimizeWindow() {
-      await appWindow.minimize();
+      if (appWindow) {
+        await appWindow.minimize();
+      }
     }
 
     async function toggleMaximize() {
-      await appWindow.toggleMaximize();
+      if (appWindow) {
+        await appWindow.toggleMaximize();
+      }
     }
 
     async function closeWindow() {
-      await appWindow.close();
+      if (appWindow) {
+        await appWindow.close();
+      }
     }
 
     // APDU 控制台逻辑
