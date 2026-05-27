@@ -73,6 +73,7 @@ export function Sidebar({
         height: 500,
         center: true,
         resizable: true,
+        decorations: false,
       });
 
       // 监听窗口关闭事件

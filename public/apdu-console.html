@@ -8,6 +8,7 @@
     :root {
       --bg-primary: #ffffff;
       --bg-secondary: #fafafa;
+      --bg-titlebar: #f7f7f9;
       --bg-card: #ffffff;
       --border-color: #ececee;
       --text-primary: #1a1a1a;
@@ -33,6 +34,55 @@
       flex-direction: column;
     }
 
+    /* 模拟标题栏 */
+    .titlebar {
+      background: var(--bg-titlebar);
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .titlebar-left {
+      flex: 1;
+    }
+
+    .titlebar-controls {
+      display: flex;
+      align-items: center;
+    }
+
+    .titlebar-btn {
+      width: 46px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .titlebar-btn:hover {
+      background: #e5e5e5;
+    }
+
+    .titlebar-btn.close:hover {
+      background: #e81123;
+    }
+
+    .titlebar-btn svg {
+      width: 10px;
+      height: 10px;
+      color: #333;
+    }
+
+    .titlebar-btn.close:hover svg {
+      color: white;
+    }
+
+    /* 内容区域 */
     .header {
       background: var(--bg-primary);
       padding: 0 16px;
@@ -166,6 +216,25 @@
   </style>
 </head>
 <body>
+  <!-- 模拟标题栏 -->
+  <div class="titlebar" data-tauri-drag-region>
+    <div class="titlebar-left" data-tauri-drag-region></div>
+    <div class="titlebar-controls">
+      <!-- 最小化 -->
+      <button class="titlebar-btn minimize" onclick="minimizeWindow()">
+        <svg viewBox="0 0 10 10"><path d="M 0 5 L 10 5" stroke="currentColor" stroke-width="1"/></svg>
+      </button>
+      <!-- 最大化 -->
+      <button class="titlebar-btn maximize" onclick="toggleMaximize()">
+        <svg viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" stroke="currentColor" stroke-width="1" fill="none"/></svg>
+      </button>
+      <!-- 关闭 -->
+      <button class="titlebar-btn close" onclick="closeWindow()">
+        <svg viewBox="0 0 10 10"><path d="M 0 0 L 10 10 M 10 0 L 0 10" stroke="currentColor" stroke-width="1"/></svg>
+      </button>
+    </div>
+  </div>
+
   <div class="header">
     <div class="header-title">
       <span>APDU 控制台</span>
@@ -179,7 +248,25 @@
     <button onclick="sendManualApdu()">发送</button>
   </div>
 
+  <script src="https://unpkg.com/@tauri-apps/api@2.0.0/webviewWindow.js"></script>
   <script>
+    // 窗口控制
+    const { getCurrentWebviewWindow } = window.__TAURI__.webviewWindow;
+    const appWindow = getCurrentWebviewWindow();
+
+    async function minimizeWindow() {
+      await appWindow.minimize();
+    }
+
+    async function toggleMaximize() {
+      await appWindow.toggleMaximize();
+    }
+
+    async function closeWindow() {
+      await appWindow.close();
+    }
+
+    // APDU 控制台逻辑
     const consoleEl = document.getElementById('console');
     const apduInput = document.getElementById('apduInput');
     const MAX_ENTRIES = 50;
@@ -240,7 +327,6 @@
       `;
       consoleEl.insertBefore(entry, consoleEl.firstChild);
 
-      // 保留最近50条记录
       const entries = consoleEl.querySelectorAll('.entry');
       for (let i = MAX_ENTRIES; i < entries.length; i++) {
         entries[i].remove();
@@ -264,7 +350,6 @@
       apduInput.style.height = 'auto';
     }
 
-    // Ctrl+Enter 发送
     apduInput.addEventListener('keydown', function(e) {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
@@ -272,7 +357,6 @@
       }
     });
 
-    // 自动调整文本域高度
     apduInput.addEventListener('input', function() {
       this.style.height = 'auto';
       this.style.height = Math.min(this.scrollHeight, 120) + 'px';
@@ -292,7 +376,6 @@
       addEntry(data.send, data.resp, data.duration);
     });
 
-    // 暴露全局方法供 Tauri 主窗口调用
     window.apduConsole = {
       log: function(sendApdu, respApdu, duration) {
         addEntry(sendApdu, respApdu, duration);
