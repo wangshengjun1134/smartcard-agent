@@ -68,7 +68,7 @@ export function Sidebar({
       // 创建新窗口
       const webview = new WebviewWindow('apdu-console', {
         url: '/apdu-console.html',
-        title: 'APDU 控制台',
+        title: '',
         width: 600,
         height: 500,
         center: true,

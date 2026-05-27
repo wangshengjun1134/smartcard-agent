@@ -43,6 +43,14 @@
       flex-shrink: 0;
     }
 
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
     .console {
       flex: 1;
       padding: 16px;
@@ -158,7 +166,11 @@
   </style>
 </head>
 <body>
-  <div class="header"></div>
+  <div class="header">
+    <div class="header-title">
+      <span>APDU 控制台</span>
+    </div>
+  </div>
   <div class="console" id="console">
     <div class="empty">等待 APDU 指令...</div>
   </div>
