@@ -319,13 +319,27 @@ async def stream_agent(user_input: str, session_id: str = None):
     logger = logging.getLogger(__name__)
     logger.info(f"[DEBUG] stream_agent called with input: {user_input}, session_id: {session_id}")
 
-    # First, determine intent
+    # First, determine intent (async call)
     from agents.nodes.intent.intent_node import intent_node
     initial_state = create_initial_state(user_input)
-    intent_result = intent_node(initial_state)
+    intent_result = await intent_node(initial_state)
     intent = intent_result.get("execution_intent", "NORMAL_CHAT")
 
     logger.info(f"[DEBUG] Detected intent: {intent}")
+
+    # Check if intent_node already returned a fixed response
+    if intent_result.get("finished") and intent_result.get("final_response"):
+        fixed_response = intent_result["final_response"]
+        # Stream the fixed response for visual effect
+        for char in fixed_response:
+            yield f"data: {json.dumps({'type': 'content', 'content': char})}\n\n"
+            await asyncio.sleep(0.01)  # Small delay for visual effect
+        yield f"data: {json.dumps({'type': 'done', 'response': fixed_response})}\n\n"
+
+        # Save assistant response to database
+        if session_id:
+            _update_assistant_message(session_id, fixed_response)
+        return
 
     accumulated_response = ""
 
