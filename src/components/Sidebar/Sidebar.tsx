@@ -8,7 +8,7 @@ import { ConfirmDialog } from '../Dialog/ConfirmDialog';
 import { GroupSelectDialog } from '../Dialog/GroupSelectDialog';
 import { UserMenu } from '../Dialog/UserMenu';
 import { SettingsDialog } from '../Dialog/SettingsDialog';
-import ApduConsoleDialog from './ApduConsoleDialog';
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 
 export type ViewType = 'chat' | 'knowledge' | 'skills';
 
@@ -53,7 +53,36 @@ export function Sidebar({
 
   // 对话框状态
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const [showApduConsole, setShowApduConsole] = useState(false);
+
+  // 打开 APDU 控制台窗口
+  const openApduConsole = async () => {
+    try {
+      // 检查窗口是否已存在
+      const existingWindow = await WebviewWindow.getByLabel('apdu-console');
+      if (existingWindow) {
+        // 如果窗口已存在，聚焦它
+        await existingWindow.setFocus();
+        return;
+      }
+
+      // 创建新窗口
+      const webview = new WebviewWindow('apdu-console', {
+        url: '/apdu-console.html',
+        title: 'APDU 控制台',
+        width: 600,
+        height: 500,
+        center: true,
+        resizable: true,
+      });
+
+      // 监听窗口关闭事件
+      webview.once('destroyed', () => {
+        console.log('APDU console window closed');
+      });
+    } catch (error) {
+      console.error('Failed to open APDU console window:', error);
+    }
+  };
 
   // 菜单状态
   const [groupMenuState, setGroupMenuState] = useState<{
@@ -283,7 +312,7 @@ export function Sidebar({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </button>
-          <button className="circle-btn w-[18px] h-[18px]" aria-label="控制台" onClick={() => setShowApduConsole(true)}>
+          <button className="circle-btn w-[18px] h-[18px]" aria-label="控制台" onClick={openApduConsole}>
             <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 17l6-5-6-5M12 19h8" />
             </svg>
@@ -524,11 +553,6 @@ export function Sidebar({
       <SettingsDialog
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
-      />
-
-      <ApduConsoleDialog
-        isOpen={showApduConsole}
-        onClose={() => setShowApduConsole(false)}
       />
     </div>
   );
