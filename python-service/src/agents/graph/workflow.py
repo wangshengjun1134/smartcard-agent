@@ -1,4 +1,4 @@
-"""LangGraph Workflow for the Runtime Agent.
+"""LangGraph Workflow for the Runtime Agent - UPDATED.
 
 This module defines the StateGraph workflow that orchestrates
 the agent nodes according to the specified flowchart:
@@ -124,12 +124,16 @@ def create_workflow() -> StateGraph:
         - TOOL_REASONING → planner
         """
         intent = state["execution_intent"]
+        print(f"[DEBUG] route_after_intent: intent={intent}")
 
         if intent == INTENT_NORMAL_CHAT:
+            print(f"[DEBUG] Routing to direct_answer")
             return "direct_answer"
         elif intent == INTENT_RAG_DOMINANT:
+            print(f"[DEBUG] Routing to rag_query")
             return "rag_query"
         else:  # TOOL_REASONING
+            print(f"[DEBUG] Routing to planner")
             return "planner"
 
     workflow.add_conditional_edges(
@@ -240,7 +244,7 @@ def compile_workflow() -> Any:
     return workflow.compile()
 
 
-# Global compiled graph
+# Global compiled graph (cleared on module reload)
 _graph = None
 
 
@@ -251,8 +255,8 @@ def get_graph() -> Any:
         Compiled LangGraph instance.
     """
     global _graph
-    if _graph is None:
-        _graph = compile_workflow()
+    # Always recompile to pick up latest changes (for development)
+    _graph = compile_workflow()
     return _graph
 
 

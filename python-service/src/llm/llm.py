@@ -11,7 +11,7 @@ def get_llm(config: Optional[LLMConfig] = None, temperature: float = 0.7, timeou
     """Get LLM model instance.
 
     Args:
-        config: LLM configuration. If None, uses default config from env.
+        config: LLM configuration. If None, uses config from database (priority) or env.
         temperature: Model temperature for response generation.
         timeout: Request timeout in seconds.
 
@@ -19,7 +19,7 @@ def get_llm(config: Optional[LLMConfig] = None, temperature: float = 0.7, timeou
         ChatOpenAI instance.
     """
     if config is None:
-        config = LLMConfig.from_env()
+        config = LLMConfig.get_config()
 
     return ChatOpenAI(
         model=config.openai_model,

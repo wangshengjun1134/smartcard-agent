@@ -50,13 +50,18 @@ async def agent_chat(request: AgentChatRequest) -> AgentChatResponse:
     Returns:
         Agent response with execution results.
     """
-    print(f"[DEBUG] agent_chat called with message: {request.message}")
-    
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[DEBUG] agent_chat called with message: {request.message}")
+
     try:
         # Run agent
-        print(f"[DEBUG] Calling run_agent_async...")
+        logger.info(f"[DEBUG] Calling run_agent_async...")
         result = await run_agent_async(request.message)
-        print(f"[DEBUG] run_agent_async returned: {result}")
+        logger.info(f"[DEBUG] Full result: {result}")
+        logger.info(f"[DEBUG] final_response: {result.get('final_response', '')}")
+        logger.info(f"[DEBUG] rag_query: {result.get('rag_query', '')}")
+        logger.info(f"[DEBUG] rag_context: {result.get('rag_context', [])}")
 
         return AgentChatResponse(
             response=result.get("final_response", ""),
@@ -68,7 +73,7 @@ async def agent_chat(request: AgentChatRequest) -> AgentChatResponse:
         )
 
     except Exception as e:
-        print(f"[DEBUG] Exception in agent_chat: {e}")
+        logger.error(f"[DEBUG] Exception in agent_chat: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

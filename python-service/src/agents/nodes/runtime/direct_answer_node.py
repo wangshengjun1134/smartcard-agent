@@ -11,10 +11,11 @@ from agents.nodes.logging_utils import log_node_io
 
 
 @log_node_io("direct_answer_node")
-def direct_answer_node(state: AgentState) -> Dict[str, Any]:
+async def direct_answer_node(state: AgentState) -> Dict[str, Any]:
     """Direct answer node function.
 
     Generates a simple direct response for normal chat queries.
+    Falls back to LLM if no pattern matches.
 
     Args:
         state: Current agent state
@@ -25,7 +26,7 @@ def direct_answer_node(state: AgentState) -> Dict[str, Any]:
     user_input = state["user_input"]
 
     # Generate simple response
-    final_response = generate_direct_response(user_input)
+    final_response = await generate_direct_response(user_input)
 
     return {
         "final_response": final_response,
@@ -33,7 +34,7 @@ def direct_answer_node(state: AgentState) -> Dict[str, Any]:
     }
 
 
-def generate_direct_response(user_input: str) -> str:
+async def generate_direct_response(user_input: str) -> str:
     """Generate direct response for user input.
 
     Args:
@@ -42,7 +43,6 @@ def generate_direct_response(user_input: str) -> str:
     Returns:
         Direct response string.
     """
-    # Simple acknowledgment for greetings and simple queries
     input_lower = user_input.lower()
 
     # Greeting patterns
@@ -64,24 +64,13 @@ def generate_direct_response(user_input: str) -> str:
     if any(word in input_lower for word in ["谢谢", "感谢", "thanks"]):
         return "不客气！如果还有其他问题，随时可以问我。"
 
-    # Default fallback
-    return f"我收到了您的消息：'{user_input}'。如果您需要进行智能卡操作或查询相关知识，请告诉我具体需求。"
+    # Fallback to LLM
+    try:
+        from llm.llm import get_llm
+        from langchain_core.prompts import ChatPromptTemplate
 
-
-@log_node_io("direct_answer_node_with_llm")
-async def direct_answer_node_with_llm(state: AgentState, llm: Any) -> Dict[str, Any]:
-    """Direct answer node using LLM.
-
-    Args:
-        state: Current agent state
-        llm: LangChain LLM instance
-
-    Returns:
-        State updates with LLM-generated response.
-    """
-    from langchain_core.prompts import ChatPromptTemplate
-
-    prompt = ChatPromptTemplate.from_template("""
+        llm = get_llm()
+        prompt = ChatPromptTemplate.from_template("""
 你是一个智能卡操作助手。
 
 用户提出了一个普通问题，请直接回答。
@@ -90,11 +79,12 @@ async def direct_answer_node_with_llm(state: AgentState, llm: Any) -> Dict[str, 
 
 请给出简洁、友好的回答。
 """)
-
-    chain = prompt | llm
-    result = chain.invoke({"input": state["user_input"]})
-
-    return {
-        "final_response": result.content.strip(),
-        "finished": True,
-    }
+        chain = prompt | llm
+        result = await chain.ainvoke({"input": user_input})
+        return result.content.strip()
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"LLM fallback failed: {e}")
+        # Final fallback when LLM is not available
+        return f"我收到了您的消息：'{user_input}'。如果您需要进行智能卡操作或查询相关知识，请告诉我具体需求。"

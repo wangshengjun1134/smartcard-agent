@@ -10,11 +10,10 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from agents.graph.state import AgentState
 from agents.nodes.logging_utils import log_node_io
-from agents.nodes.intent.intent_node import (
-    INTENT_KNOWLEDGE_ONLY,
-    INTENT_REQUIRES_CARD,
-    INTENT_REQUIRES_APDU,
-    INTENT_REQUIRES_DYNAMIC_REASONING,
+from agents.graph.state import (
+    INTENT_NORMAL_CHAT,
+    INTENT_RAG_DOMINANT,
+    INTENT_TOOL_REASONING,
 )
 
 
@@ -88,14 +87,21 @@ def goal_planner_node(state: AgentState) -> Dict[str, Any]:
     user_input = state["user_input"]
     intent = state["execution_intent"]
 
-    # For knowledge-only intent, goal is just "knowledge_query"
-    if intent == INTENT_KNOWLEDGE_ONLY:
+    # For RAG dominant intent, goal is "knowledge_query"
+    if intent == INTENT_RAG_DOMINANT:
         return {
             "current_goal": "knowledge_query",
             "finished": False,
         }
 
-    # For card/APDU intents, determine specific goal
+    # For normal chat, goal is "knowledge_query" (use RAG for general questions)
+    if intent == INTENT_NORMAL_CHAT:
+        return {
+            "current_goal": "knowledge_query",
+            "finished": False,
+        }
+
+    # For tool reasoning intents, determine specific goal
     goal = determine_goal(user_input)
 
     return {
@@ -143,7 +149,7 @@ async def goal_planner_node_with_llm(state: AgentState, llm: Any) -> Dict[str, A
     Returns:
         State updates with current_goal.
     """
-    if state["execution_intent"] == INTENT_KNOWLEDGE_ONLY:
+    if state["execution_intent"] in (INTENT_RAG_DOMINANT, INTENT_NORMAL_CHAT):
         return {"current_goal": "knowledge_query"}
 
     chain = GOAL_PROMPT | llm

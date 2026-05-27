@@ -49,10 +49,14 @@ def intent_node(state: AgentState) -> Dict[str, Any]:
     Returns:
         State updates with execution_intent.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     user_input = state["user_input"]
 
     # Classify intent
     intent = classify_intent(user_input)
+    logger.info(f"[DEBUG] intent_node: classified intent={intent}")
 
     return {
         "execution_intent": intent,
@@ -118,10 +122,10 @@ def classify_intent(user_input: str) -> str:
 
     # Check if it looks like a question (RAG dominant)
     if "?" in user_input or "？" in user_input:
-        return INTENT_RAG_DOMINANT
+        return INTENT_NORMAL_CHAT
 
     # Default: treat as RAG query for general conversation
-    return INTENT_RAG_DOMINANT
+    return INTENT_NORMAL_CHAT
 
 
 @log_node_io("intent_node_with_llm")

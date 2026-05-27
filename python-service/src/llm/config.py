@@ -57,3 +57,53 @@ class LLMConfig:
     def from_env(cls) -> "LLMConfig":
         """Create configuration from environment variables."""
         return cls()
+
+    @classmethod
+    def from_db(cls) -> Optional["LLMConfig"]:
+        """Create configuration from database (api_config table).
+
+        Returns the most recently updated configuration, or None if not found.
+        """
+        try:
+            from utils.database import get_session_db_connection
+
+            conn = get_session_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT * FROM api_config
+                ORDER BY updated_at DESC
+                LIMIT 1
+                """
+            )
+            row = cursor.fetchone()
+            conn.close()
+
+            if not row:
+                return None
+
+            return cls(
+                openai_api_key=row["api_key"],
+                openai_api_base=row["base_url"],
+                openai_model=row["model"] or "qwen3.5-plus",
+                # Keep embedding settings from env (database only stores LLM config)
+                embedding_api_key=os.getenv("DASHSCOPE_API_KEY") or os.getenv("OPENAI_API_KEY"),
+                embedding_api_base=os.getenv("EMBEDDING_API_BASE", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+                embedding_model=os.getenv("EMBEDDING_MODEL", "text-embedding-v3"),
+            )
+        except Exception:
+            return None
+
+    @classmethod
+    def get_config(cls) -> "LLMConfig":
+        """Get LLM configuration.
+
+        Priority: database > environment variables.
+
+        Returns:
+            LLMConfig instance (from db or env).
+        """
+        db_config = cls.from_db()
+        if db_config and db_config.is_valid():
+            return db_config
+        return cls.from_env()

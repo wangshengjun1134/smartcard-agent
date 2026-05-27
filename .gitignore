@@ -85,4 +85,5 @@ openspec/changes/
 .qwen/skills/  
 # Build artifacts 
 python-service/*.spec 
+python-service/.venv 
 src-tauri/gen/ 

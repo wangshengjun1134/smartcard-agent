@@ -42,6 +42,12 @@ def finalize_node(state: AgentState) -> Dict[str, Any]:
     Returns:
         State updates with final_response and finished.
     """
+    # If final_response already set (by answer_from_rag or direct_answer), keep it
+    if state.get("final_response"):
+        return {
+            "finished": True,
+        }
+
     user_input = state["user_input"]
     goal = state["current_goal"]
     observations = state["observations"]
