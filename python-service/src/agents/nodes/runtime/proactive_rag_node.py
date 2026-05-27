@@ -106,7 +106,7 @@ def retrieve_proactive_knowledge(query: str) -> List[str]:
         from services.rag_service import RAGService
 
         rag_service = RAGService()
-        docs = rag_service.search(query, top_k=settings.RAG_TOP_K)
+        docs = rag_service.search(query, k=settings.RAG_TOP_K)
 
         return [doc.get("content", "") for doc in docs]
 

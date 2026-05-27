@@ -97,7 +97,7 @@ def retrieve_from_rag(queries: List[str]) -> List[str]:
 
         results = []
         for query in queries:
-            docs = rag_service.search(query, top_k=settings.RAG_TOP_K)
+            docs = rag_service.search(query, k=settings.RAG_TOP_K)
             for doc in docs:
                 results.append(doc.get("content", ""))
 
