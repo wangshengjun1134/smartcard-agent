@@ -32,7 +32,7 @@ class QdrantStore:
             llm_config: LLM configuration for embeddings.
         """
         self.config = config or VectorDBConfig.from_env()
-        self.llm_config = llm_config or LLMConfig.from_env()
+        self.llm_config = llm_config or LLMConfig.get_config()
         self._client: Optional[QdrantClient] = None
         self._vector_store: Optional[QdrantVectorStore] = None
 

@@ -1,6 +1,5 @@
 """LLM configuration module."""
 
-import os
 import time
 from dataclasses import dataclass, field
 from typing import Optional
@@ -19,6 +18,10 @@ CODING_PLAN_MODELS = [
     "glm-4.7",
 ]
 
+# Default API base URL
+DEFAULT_API_BASE = "https://coding.dashscope.aliyuncs.com/v1"
+DEFAULT_MODEL = "qwen3.5-plus"
+
 # Cache for database config
 _config_cache: Optional["LLMConfig"] = None
 _cache_time: float = 0
@@ -27,42 +30,16 @@ CACHE_EXPIRE_SECONDS = 300  # 5 minutes
 
 @dataclass
 class LLMConfig:
-    """LLM configuration settings."""
+    """LLM configuration settings loaded from database."""
 
     # OpenAI API settings
-    openai_api_key: Optional[str] = field(default_factory=lambda: os.getenv("BAILIAN_CODING_PLAN_API_KEY") or os.getenv("OPENAI_API_KEY"))
-    openai_api_base: Optional[str] = field(default_factory=lambda: os.getenv("OPENAI_API_BASE", "https://coding.dashscope.aliyuncs.com/v1"))
-    openai_model: str = field(default_factory=lambda: os.getenv("OPENAI_MODEL", "qwen3.5-plus"))
-
-    # Embedding settings (需要标准 DashScope API Key)
-    embedding_api_key: Optional[str] = field(default_factory=lambda: os.getenv("DASHSCOPE_API_KEY") or os.getenv("OPENAI_API_KEY"))
-    embedding_api_base: Optional[str] = field(default_factory=lambda: os.getenv("EMBEDDING_API_BASE", "https://dashscope.aliyuncs.com/compatible-mode/v1"))
-    embedding_model: str = field(default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-v3"))
-
-    # Qdrant settings
-    qdrant_host: str = field(default_factory=lambda: os.getenv("QDRANT_HOST", "localhost"))
-    qdrant_port: int = field(default_factory=lambda: int(os.getenv("QDRANT_PORT", "6333")))
-    qdrant_collection: str = field(default_factory=lambda: os.getenv("QDRANT_COLLECTION", "knowledge_base"))
-
-    # Local LLM settings (for offline mode)
-    local_llm_path: Optional[str] = field(default_factory=lambda: os.getenv("LOCAL_LLM_PATH"))
-    use_local_llm: bool = field(default_factory=lambda: os.getenv("USE_LOCAL_LLM", "false").lower() == "true")
+    openai_api_key: Optional[str] = None
+    openai_api_base: str = DEFAULT_API_BASE
+    openai_model: str = DEFAULT_MODEL
 
     def is_valid(self) -> bool:
         """Check if configuration is valid for operation."""
-        if self.use_local_llm:
-            return self.local_llm_path is not None
-        return self.openai_api_key is not None
-
-    def has_embeddings(self) -> bool:
-        """Check if embeddings are available."""
-        # Embeddings 需要标准 DashScope API Key (非 Coding Plan)
-        return self.embedding_api_key is not None and not self.embedding_api_key.startswith("sk-sp-")
-
-    @classmethod
-    def from_env(cls) -> "LLMConfig":
-        """Create configuration from environment variables."""
-        return cls()
+        return self.openai_api_key is not None and len(self.openai_api_key.strip()) > 0
 
     @classmethod
     def from_db(cls) -> Optional["LLMConfig"]:
@@ -90,12 +67,8 @@ class LLMConfig:
 
             return cls(
                 openai_api_key=row["api_key"],
-                openai_api_base=row["base_url"],
-                openai_model=row["model"] or "qwen3.5-plus",
-                # Keep embedding settings from env (database only stores LLM config)
-                embedding_api_key=os.getenv("DASHSCOPE_API_KEY") or os.getenv("OPENAI_API_KEY"),
-                embedding_api_base=os.getenv("EMBEDDING_API_BASE", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
-                embedding_model=os.getenv("EMBEDDING_MODEL", "text-embedding-v3"),
+                openai_api_base=row["base_url"] or DEFAULT_API_BASE,
+                openai_model=row["model"] or DEFAULT_MODEL,
             )
         except Exception:
             return None
@@ -104,10 +77,10 @@ class LLMConfig:
     def get_config(cls) -> "LLMConfig":
         """Get LLM configuration with caching.
 
-        Priority: cached db config > database > environment variables.
+        Always loads from database. Returns default config if not configured.
 
         Returns:
-            LLMConfig instance (from cache, db or env).
+            LLMConfig instance.
         """
         global _config_cache, _cache_time
 
@@ -118,16 +91,16 @@ class LLMConfig:
 
         # Load from database
         db_config = cls.from_db()
-        if db_config and db_config.is_valid():
+        if db_config:
             _config_cache = db_config
             _cache_time = current_time
             return db_config
 
-        # Fallback to env
-        env_config = cls.from_env()
-        _config_cache = env_config
+        # Return default config (not valid, but provides default values)
+        default_config = cls()
+        _config_cache = default_config
         _cache_time = current_time
-        return env_config
+        return default_config
 
     @classmethod
     def clear_cache(cls) -> None:

@@ -66,7 +66,7 @@ async def generate_direct_response(user_input: str) -> str:
 
     # Fallback to LLM
     try:
-        from llm.llm import get_llm
+        from llm.llm import get_llm, LLMConfigError
         from langchain_core.prompts import ChatPromptTemplate
 
         llm = get_llm()
@@ -82,6 +82,8 @@ async def generate_direct_response(user_input: str) -> str:
         chain = prompt | llm
         result = await chain.ainvoke({"input": user_input})
         return result.content.strip()
+    except LLMConfigError:
+        return "请先在设置中配置 API Key，然后再开始对话。"
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)

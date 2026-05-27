@@ -11,6 +11,11 @@ from config.logging import get_logger
 logger = get_logger(__name__)
 
 
+class LLMConfigError(Exception):
+    """Exception raised when LLM configuration is missing or invalid."""
+    pass
+
+
 class LLMLoggingCallback(BaseCallbackHandler):
     """Callback handler for logging LLM requests and responses."""
 
@@ -40,6 +45,25 @@ class LLMLoggingCallback(BaseCallbackHandler):
         # logger.debug(f"[LLM] Token: {token}")
 
 
+def is_llm_configured() -> bool:
+    """Check if LLM is properly configured.
+
+    Returns:
+        True if API key is available, False otherwise.
+    """
+    config = LLMConfig.get_config()
+    return config.openai_api_key is not None and len(config.openai_api_key.strip()) > 0
+
+
+def get_llm_config() -> LLMConfig:
+    """Get current LLM configuration.
+
+    Returns:
+        LLMConfig instance.
+    """
+    return LLMConfig.get_config()
+
+
 def get_llm(
     config: Optional[LLMConfig] = None,
     temperature: float = 0.7,
@@ -56,9 +80,18 @@ def get_llm(
 
     Returns:
         ChatOpenAI instance.
+
+    Raises:
+        LLMConfigError: If API key is not configured.
     """
     if config is None:
         config = LLMConfig.get_config()
+
+    # Check if API key is available
+    if not config.openai_api_key or len(config.openai_api_key.strip()) == 0:
+        raise LLMConfigError(
+            "LLM API Key 未配置。请在设置中配置 API Key。"
+        )
 
     callbacks = [LLMLoggingCallback()] if verbose else None
 

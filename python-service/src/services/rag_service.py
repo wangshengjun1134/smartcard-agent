@@ -43,7 +43,7 @@ class RAGService:
             vectordb_config: Vector database configuration.
             llm_config: LLM configuration.
         """
-        self.llm_config = llm_config or LLMConfig.from_env()
+        self.llm_config = llm_config or LLMConfig.get_config()
         self.vectordb_config = vectordb_config or VectorDBConfig.from_env()
         self._store: Optional[QdrantStore] = None
         self._chain = None

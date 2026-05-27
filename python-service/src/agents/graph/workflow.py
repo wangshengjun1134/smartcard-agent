@@ -491,7 +491,7 @@ async def _stream_direct_response(user_input: str):
 
     # Fallback to LLM streaming
     try:
-        from llm.llm import get_llm
+        from llm.llm import get_llm, LLMConfigError
         from langchain_core.prompts import ChatPromptTemplate
 
         llm = get_llm()
@@ -515,6 +515,10 @@ async def _stream_direct_response(user_input: str):
 
         yield f"data: {json.dumps({'type': 'done', 'response': accumulated})}\n\n"
 
+    except LLMConfigError:
+        fallback = "请先在设置中配置 API Key，然后再开始对话。"
+        yield f"data: {json.dumps({'type': 'content', 'content': fallback})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'response': fallback})}\n\n"
     except Exception as e:
         logger.warning(f"LLM streaming failed: {e}")
         fallback = f"我收到了您的消息：'{user_input}'。如果您需要进行智能卡操作或查询相关知识，请告诉我具体需求。"

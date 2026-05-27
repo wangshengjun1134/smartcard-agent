@@ -97,22 +97,24 @@ async def get_api_config() -> Optional[ApiConfigResponse]:
 @router.post("/api", response_model=ApiConfigResponse)
 async def save_api_config(config: ApiConfig) -> ApiConfigResponse:
     """Save API configuration.
-    
+
     Creates a new config or updates existing one for the same provider.
     """
+    from llm.config import LLMConfig
+
     now = int(time.time() * 1000)
     config_id = f"config-{now}"
-    
+
     conn = get_session_db_connection()
     cursor = conn.cursor()
-    
+
     # Check if config exists for this provider
     cursor.execute(
         "SELECT id FROM api_config WHERE provider = ?",
         (config.provider,)
     )
     existing = cursor.fetchone()
-    
+
     if existing:
         # Update existing config
         cursor.execute(
@@ -133,10 +135,13 @@ async def save_api_config(config: ApiConfig) -> ApiConfigResponse:
             """,
             (config_id, config.provider, config.base_url, config.api_key, config.model, now, now)
         )
-    
+
     conn.commit()
     conn.close()
-    
+
+    # Clear LLMConfig cache to force reload on next request
+    LLMConfig.clear_cache()
+
     return ApiConfigResponse(
         id=config_id,
         provider=config.provider,

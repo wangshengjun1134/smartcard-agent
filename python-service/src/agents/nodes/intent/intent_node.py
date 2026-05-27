@@ -139,7 +139,7 @@ async def intent_node(state: AgentState) -> Dict[str, Any]:
         State updates with execution_intent and optionally final_response.
     """
     import logging
-    from llm.llm import get_llm
+    from llm.llm import get_llm, LLMConfigError
 
     logger = logging.getLogger(__name__)
 
@@ -152,32 +152,40 @@ async def intent_node(state: AgentState) -> Dict[str, Any]:
         return fixed_result
 
     # Use LLM to classify intent
-    llm = get_llm()
-    chain = INTENT_PROMPT | llm
+    try:
+        llm = get_llm()
+        chain = INTENT_PROMPT | llm
 
-    result = await chain.ainvoke({"input": user_input})
+        result = await chain.ainvoke({"input": user_input})
 
-    # Parse intent from LLM response
-    intent_text = result.content.strip().upper()
+        # Parse intent from LLM response
+        intent_text = result.content.strip().upper()
 
-    # Normalize to valid intent
-    valid_intents = [
-        INTENT_NORMAL_CHAT,
-        INTENT_RAG_DOMINANT,
-        INTENT_TOOL_REASONING,
-    ]
+        # Normalize to valid intent
+        valid_intents = [
+            INTENT_NORMAL_CHAT,
+            INTENT_RAG_DOMINANT,
+            INTENT_TOOL_REASONING,
+        ]
 
-    intent = INTENT_NORMAL_CHAT  # Default
-    for valid_intent in valid_intents:
-        if valid_intent in intent_text or valid_intent.replace("_", " ") in intent_text:
-            intent = valid_intent
-            break
+        intent = INTENT_NORMAL_CHAT  # Default
+        for valid_intent in valid_intents:
+            if valid_intent in intent_text or valid_intent.replace("_", " ") in intent_text:
+                intent = valid_intent
+                break
 
-    logger.info(f"[DEBUG] intent_node: LLM classified intent={intent}")
+        logger.info(f"[DEBUG] intent_node: LLM classified intent={intent}")
 
-    return {
-        "execution_intent": intent,
-    }
+        return {
+            "execution_intent": intent,
+        }
+    except LLMConfigError as e:
+        logger.warning(f"LLM not configured: {e}")
+        return {
+            "execution_intent": INTENT_NORMAL_CHAT,
+            "final_response": "请先在设置中配置 API Key，然后再开始对话。",
+            "finished": True,
+        }
 
 
 @log_node_io("intent_node_with_llm")
