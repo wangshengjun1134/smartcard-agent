@@ -4,10 +4,13 @@ This module provides the FastAPI router for agent-related endpoints.
 """
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
+import json
+import asyncio
 
-from agents.graph.workflow import run_agent, run_agent_async
+from agents.graph.workflow import run_agent, run_agent_async, stream_agent
 
 
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -75,6 +78,27 @@ async def agent_chat(request: AgentChatRequest) -> AgentChatResponse:
     except Exception as e:
         logger.error(f"[DEBUG] Exception in agent_chat: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/chat/stream")
+async def agent_chat_stream(request: AgentChatRequest) -> StreamingResponse:
+    """Chat with the agent with streaming response.
+
+    Args:
+        request: Chat request with message
+
+    Returns:
+        SSE streaming response with incremental content.
+    """
+    return StreamingResponse(
+        stream_agent(request.message),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/status", response_model=AgentStatusResponse)

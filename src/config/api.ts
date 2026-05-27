@@ -41,6 +41,7 @@ export const API_CONFIG = {
     },
     agent: {
       chat: '/api/agent/chat',
+      chatStream: '/api/agent/chat/stream',
       status: '/api/agent/status',
       skills: '/api/agent/skills',
     },

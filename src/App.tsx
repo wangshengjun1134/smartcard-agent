@@ -26,6 +26,7 @@ function App() {
     deleteSession,
     updateSessionTitle,
     addMessage,
+    updateMessageContent,
     createGroup,
     updateGroup,
     deleteGroup,
@@ -34,7 +35,7 @@ function App() {
     moveSessionToGroup,
   } = useSessions();
 
-  // 发送消息处理
+  // 发送消息处理（流式响应）
   const handleSendMessage = async (content: string) => {
     // 如果没有当前会话，先创建一个
     let sessionId = currentSessionId;
@@ -43,12 +44,21 @@ function App() {
       sessionId = newSession.id;
     }
 
+    // 获取当前消息数量（用于计算 assistant 消息索引）
+    const currentMessagesCount = sessions.find(s => s.id === sessionId)?.messages.length ?? 0;
+
     // 添加用户消息
     await addMessage(sessionId, { role: 'user', content });
 
-    // 调用后端 Agent API
+    // 添加空的 assistant 消息（用于流式更新）
+    await addMessage(sessionId, { role: 'assistant', content: '' });
+
+    // assistant 消息索引 = 用户消息后 + assistant 消息
+    const assistantMessageIndex = currentMessagesCount + 1;
+
+    // 调用后端 Agent 流式 API
     try {
-      const response = await fetch(getApiUrl(API_CONFIG.endpoints.agent.chat), {
+      const response = await fetch(getApiUrl(API_CONFIG.endpoints.agent.chatStream), {
         method: 'POST',
         headers: {
           ...DEFAULT_HEADERS,
@@ -60,25 +70,51 @@ function App() {
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        await addMessage(sessionId, {
-          role: 'assistant',
-          content: data.response || 'Agent 返回空响应',
-        });
-      } else {
+      if (!response.ok) {
         const errorData = await response.json();
-        await addMessage(sessionId, {
-          role: 'assistant',
-          content: `请求失败: ${errorData.detail || response.statusText}`,
-        });
+        updateMessageContent(sessionId, assistantMessageIndex, `请求失败: ${errorData.detail || response.statusText}`);
+        return;
+      }
+
+      // 处理 SSE 流式响应
+      const reader = response.body?.getReader();
+      if (!reader) {
+        updateMessageContent(sessionId, assistantMessageIndex, '无法读取响应流');
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let accumulatedContent = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.type === 'content') {
+                // 累积内容并更新消息
+                accumulatedContent += data.content;
+                updateMessageContent(sessionId, assistantMessageIndex, accumulatedContent);
+              } else if (data.type === 'done') {
+                // 流式结束，更新最终消息
+                updateMessageContent(sessionId, assistantMessageIndex, data.response || accumulatedContent);
+              }
+            } catch (e) {
+              console.error('Parse SSE error:', e);
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Agent API error:', error);
-      await addMessage(sessionId, {
-        role: 'assistant',
-        content: `网络错误: ${error instanceof Error ? error.message : '未知错误'}`,
-      });
+      updateMessageContent(sessionId, assistantMessageIndex, `网络错误: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   };
 

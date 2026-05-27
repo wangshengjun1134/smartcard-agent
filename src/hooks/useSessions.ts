@@ -276,6 +276,26 @@ export function useSessions() {
     return newMessage;
   }, []);
 
+  // 流式更新消息内容（仅本地更新，不调用 API）
+  const updateMessageContent = useCallback((sessionId: string, messageIndex: number, content: string) => {
+    setSessions(prev =>
+      prev.map(s => {
+        if (s.id !== sessionId) return s;
+        const updatedMessages = [...s.messages];
+        if (messageIndex >= 0 && messageIndex < updatedMessages.length) {
+          updatedMessages[messageIndex] = {
+            ...updatedMessages[messageIndex],
+            content,
+          };
+        }
+        return {
+          ...s,
+          messages: updatedMessages,
+        };
+      })
+    );
+  }, []);
+
   const getSessionsByGroup = useCallback((groupId: string | undefined) => {
     return sessions.filter(s => s.groupId === groupId);
   }, [sessions]);
@@ -291,6 +311,7 @@ export function useSessions() {
     deleteSession,
     updateSessionTitle,
     addMessage,
+    updateMessageContent,
     // Group operations
     createGroup,
     updateGroup,
