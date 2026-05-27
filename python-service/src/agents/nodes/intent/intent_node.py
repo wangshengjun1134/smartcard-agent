@@ -112,7 +112,7 @@ def _check_fixed_response(user_input: str) -> Dict[str, Any] | None:
 
     # Check for greeting patterns (partial match)
     for pattern in GREETING_PATTERNS:
-        if pattern in input_lower:
+        if pattern == input_lower:
             # Use the pattern's response if available
             if pattern in FIXED_RESPONSES:
                 return {
