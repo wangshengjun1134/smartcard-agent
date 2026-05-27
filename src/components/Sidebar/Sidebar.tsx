@@ -9,6 +9,7 @@ import { GroupSelectDialog } from '../Dialog/GroupSelectDialog';
 import { UserMenu } from '../Dialog/UserMenu';
 import { SettingsDialog } from '../Dialog/SettingsDialog';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { getCurrentWindow, currentMonitor } from '@tauri-apps/api/window';
 
 export type ViewType = 'chat' | 'knowledge' | 'skills';
 
@@ -65,13 +66,41 @@ export function Sidebar({
         return;
       }
 
-      // 创建新窗口
+      // 获取主窗口
+      const mainWindow = getCurrentWindow();
+      const outerSize = await mainWindow.outerSize();
+      const innerSize = await mainWindow.innerSize();
+      const position = await mainWindow.outerPosition();
+
+      // 获取当前显示器信息
+      const monitor = await currentMonitor();
+      const screenWidth = monitor?.size.width || 1920;
+      const screenHeight = monitor?.size.height || 1080;
+      const monitorX = monitor?.position.x || 0;
+      const monitorY = monitor?.position.y || 0;
+
+      // 控制台窗口宽度
+      const consoleWidth = 600;
+
+      // 计算总宽度（主窗口 + 控制台）
+      const totalWidth = outerSize.width + consoleWidth;
+
+      // 计算整体居中位置
+      const centerX = monitorX + screenWidth / 2;
+      const newMainX = Math.round(centerX - totalWidth / 2);
+      const mainY = position.y; // 保持当前 Y 位置
+
+      // 移动主窗口到左侧
+      await mainWindow.setPosition({ type: 'Physical', x: newMainX, y: mainY });
+
+      // 创建控制台窗口，放置在主窗口右侧，高度与主窗口相同
       const webview = new WebviewWindow('apdu-console', {
         url: '/apdu-console.html',
         title: '',
-        width: 600,
-        height: 500,
-        center: true,
+        width: consoleWidth,
+        height: innerSize.height,
+        x: newMainX + outerSize.width,
+        y: mainY,
         resizable: true,
         decorations: false,
       });
@@ -306,16 +335,16 @@ export function Sidebar({
     <div ref={sidebarRef} className="sidebar-container w-[260px] h-full flex flex-col p-4 flex-shrink-0 relative">
       {/* 顶部：Logo 和图标 */}
       <div className="flex items-center justify-between mb-4">
-        <div className="text-base font-semibold text-[#1a1a1a]">SmartCardAgent</div>
+        <div className="text-base font-semibold text-[#1a1a1a]">SmartCard Agent</div>
         <div className="flex items-center gap-3">
           <button className="circle-btn w-[18px] h-[18px]" aria-label="搜索">
-            <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </button>
           <button className="circle-btn w-[18px] h-[18px]" aria-label="控制台" onClick={openApduConsole}>
-            <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 17l6-5-6-5M12 19h8" />
+            <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 17l6-5-6-5M12 19h8" />
             </svg>
           </button>
         </div>
