@@ -85,13 +85,13 @@ async def agent_chat_stream(request: AgentChatRequest) -> StreamingResponse:
     """Chat with the agent with streaming response.
 
     Args:
-        request: Chat request with message
+        request: Chat request with message and optional session_id
 
     Returns:
         SSE streaming response with incremental content.
     """
     return StreamingResponse(
-        stream_agent(request.message),
+        stream_agent(request.message, request.session_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

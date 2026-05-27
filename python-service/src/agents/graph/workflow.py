@@ -302,7 +302,7 @@ async def run_agent_async(user_input: str) -> Dict[str, Any]:
     return result
 
 
-async def stream_agent(user_input: str):
+async def stream_agent(user_input: str, session_id: str = None):
     """Stream agent execution with SSE format.
 
     For NORMAL_CHAT intent, directly streams LLM response.
@@ -310,13 +310,14 @@ async def stream_agent(user_input: str):
 
     Args:
         user_input: User request text
+        session_id: Session ID for saving assistant response
 
     Yields:
         SSE formatted strings with incremental response.
     """
     import logging
     logger = logging.getLogger(__name__)
-    logger.info(f"[DEBUG] stream_agent called with input: {user_input}")
+    logger.info(f"[DEBUG] stream_agent called with input: {user_input}, session_id: {session_id}")
 
     # First, determine intent
     from agents.nodes.intent.intent_node import intent_node
@@ -326,16 +327,29 @@ async def stream_agent(user_input: str):
 
     logger.info(f"[DEBUG] Detected intent: {intent}")
 
+    accumulated_response = ""
+
     # For NORMAL_CHAT, directly stream LLM response
     if intent == INTENT_NORMAL_CHAT:
         async for chunk in _stream_direct_response(user_input):
+            # Accumulate response from chunks
+            try:
+                data = json.loads(chunk.replace("data: ", "").strip())
+                if data.get("type") == "content":
+                    accumulated_response += data.get("content", "")
+                elif data.get("type") == "done":
+                    accumulated_response = data.get("response", accumulated_response)
+            except:
+                pass
             yield chunk
+
+        # Save assistant response to database
+        if session_id and accumulated_response:
+            _update_assistant_message(session_id, accumulated_response)
         return
 
     # For other intents, stream LangGraph execution
     graph = get_graph()
-
-    accumulated_response = ""
 
     async for event in graph.astream(initial_state):
         # event is a dict: {node_name: node_output}
@@ -357,6 +371,65 @@ async def stream_agent(user_input: str):
     # Final yield if not already done
     if not accumulated_response:
         yield f"data: {json.dumps({'type': 'done', 'response': '处理完成'})}\n\n"
+        accumulated_response = "处理完成"
+
+    # Save assistant response to database
+    if session_id and accumulated_response:
+        _update_assistant_message(session_id, accumulated_response)
+
+
+def _update_assistant_message(session_id: str, content: str):
+    """Update the last assistant message in database.
+
+    Args:
+        session_id: Session ID
+        content: Message content to update
+    """
+    from utils.database import get_session_db_connection
+
+    conn = get_session_db_connection()
+    cursor = conn.cursor()
+
+    # Find the last assistant message in this session
+    cursor.execute(
+        """
+        SELECT id FROM messages
+        WHERE session_id = ? AND role = 'assistant'
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        (session_id,)
+    )
+    row = cursor.fetchone()
+
+    if row:
+        message_id = row["id"]
+        cursor.execute(
+            "UPDATE messages SET content = ? WHERE id = ?",
+            (content, message_id)
+        )
+        conn.commit()
+        conn.close()
+    else:
+        # No assistant message found, create one
+        import time
+        import uuid
+        message_id = f"{int(time.time() * 1000)}-{uuid.uuid4().hex[:9]}"
+        created_at = int(time.time() * 1000)
+        cursor.execute(
+            """
+            INSERT INTO messages (id, session_id, role, content, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (message_id, session_id, "assistant", content, created_at)
+        )
+        # Update session's updated_at
+        cursor.execute(
+            "UPDATE sessions SET updated_at = ? WHERE id = ?",
+            (created_at, session_id)
+        )
+        conn.commit()
+        conn.close()
 
 
 async def _stream_direct_response(user_input: str):
