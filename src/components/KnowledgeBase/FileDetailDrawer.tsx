@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
 import { FileNode } from '../../types/file';
 import { useFileDetail } from '../../hooks/useFileDetail';
+import { useDialogClose } from '../../hooks/useDialog';
 import { FileBasicInfo } from './FileBasicInfo';
 import { VectorChunksList } from './VectorChunksList';
 
@@ -15,19 +15,11 @@ interface FileDetailDrawerProps {
  * 从右侧滑入，显示文件信息和向量分片
  */
 export function FileDetailDrawer({ file, isOpen, onClose }: FileDetailDrawerProps) {
-  const drawerRef = useRef<HTMLDivElement>(null);
+  // 使用统一的对话框关闭Hook
+  const drawerRef = useDialogClose<HTMLDivElement>(isOpen, onClose);
+  
+  // 获取文件详情
   const { detail, loading, error } = useFileDetail(file?.id || '');
-
-  // ESC 关闭
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
 
   // 点击遮罩层关闭
   const handleOverlayClick = (e: React.MouseEvent) => {

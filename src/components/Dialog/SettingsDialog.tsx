@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getApiUrl, API_CONFIG, DEFAULT_HEADERS } from '../../config/api';
+import { useDialogClose } from '../../hooks/useDialog';
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -18,7 +19,7 @@ interface AccountSettings {
   model: string;
 }
 
-// 提供商默认配置
+// 提供商默认配置（使用常量避免重复创建）
 const PROVIDER_CONFIG: Record<Provider, { name: string; defaultUrl: string; models: string[] }> = {
   coding_plan: {
     name: '阿里 Coding Plan',
@@ -55,6 +56,12 @@ const PROVIDER_CONFIG: Record<Provider, { name: string; defaultUrl: string; mode
 // 支持图片理解的模型
 const VISION_MODELS = ['qwen3.6-plus', 'kimi-k2.5', 'qwen3.5-plus'];
 
+// 常用headers（避免重复创建）
+const JSON_HEADERS = {
+  ...DEFAULT_HEADERS,
+  'Content-Type': 'application/json',
+};
+
 // API 响应类型
 interface ApiConfigResponse {
   id: string;
@@ -70,9 +77,20 @@ interface TestConnectionResponse {
   latency_ms: number | null;
 }
 
+// 菜单项配置（使用常量避免重复创建）
+const MENU_ITEMS: { id: SettingsTab; icon: string; label: string }[] = [
+  { id: 'account', icon: 'fa-regular fa-user', label: '账号' },
+  { id: 'general', icon: 'fa-solid fa-gear', label: '通用' },
+  { id: 'knowledge', icon: 'fa-regular fa-book', label: '知识库' },
+  { id: 'skills', icon: 'fa-regular fa-lightbulb', label: '技能库' },
+  { id: 'about', icon: 'fa-regular fa-circle-info', label: '关于' },
+];
+
 export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
-  const modalRef = useRef<HTMLDivElement>(null);
+  
+  // 下拉框状态
+  const [showProviderDropdown, setShowProviderDropdown] = useState(false);
 
   // 账号设置状态
   const [accountSettings, setAccountSettings] = useState<AccountSettings>({
@@ -88,8 +106,14 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const [testResult, setTestResult] = useState<TestConnectionResponse | null>(null);
   const [isLoadingConfig, setIsLoadingConfig] = useState(false);
 
-  // 下拉框状态
-  const [showProviderDropdown, setShowProviderDropdown] = useState(false);
+  // 使用统一的对话框关闭Hook
+  const modalRef = useDialogClose<HTMLDivElement>(isOpen, () => {
+    onClose();
+    setShowProviderDropdown(false);
+  });
+
+  // 下拉框容器ref
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // 加载已保存的配置
   useEffect(() => {
@@ -110,7 +134,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           setAccountSettings({
             provider: data.provider as Provider,
             baseUrl: data.base_url,
-            apiKey: data.api_key, // 显示脱敏后的 API key
+            apiKey: data.api_key,
             model: data.model || '',
           });
         }
@@ -133,10 +157,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
     try {
       const response = await fetch(getApiUrl(API_CONFIG.endpoints.config.saveApi), {
         method: 'POST',
-        headers: {
-          ...DEFAULT_HEADERS,
-          'Content-Type': 'application/json',
-        },
+        headers: JSON_HEADERS,
         body: JSON.stringify({
           provider: accountSettings.provider,
           base_url: accountSettings.baseUrl,
@@ -170,10 +191,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
     try {
       const response = await fetch(getApiUrl(API_CONFIG.endpoints.config.testApi), {
         method: 'POST',
-        headers: {
-          ...DEFAULT_HEADERS,
-          'Content-Type': 'application/json',
-        },
+        headers: JSON_HEADERS,
         body: JSON.stringify({
           provider: accountSettings.provider,
           base_url: accountSettings.baseUrl,
@@ -205,70 +223,24 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
       baseUrl: prev.baseUrl || config.defaultUrl,
       model: config.models.length > 0 ? config.models[0] : '',
     }));
-    setTestResult(null); // 清除测试结果
+    setTestResult(null);
   };
 
-  // 点击外部关闭
+  // 点击下拉框外部关闭
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
-        onClose();
+    if (!showProviderDropdown) return;
+
+    const handleClickOutsideDropdown = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setShowProviderDropdown(false);
       }
     };
 
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen, onClose]);
-
-  // 点击内部关闭下拉框（非下拉框区域）
-  useEffect(() => {
-    const handleClickInside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (
-        showProviderDropdown &&
-        !target.closest('.provider-dropdown-trigger') &&
-        !target.closest('.provider-dropdown-menu')
-      ) {
-        setShowProviderDropdown(false);
-      }
-    };
-
-    if (isOpen && showProviderDropdown) {
-      document.addEventListener('mousedown', handleClickInside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickInside);
-    };
-  }, [isOpen, showProviderDropdown]);
-
-  // ESC 关闭
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-        setShowProviderDropdown(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+    document.addEventListener('mousedown', handleClickOutsideDropdown);
+    return () => document.removeEventListener('mousedown', handleClickOutsideDropdown);
+  }, [showProviderDropdown]);
 
   if (!isOpen) return null;
-
-  const menuItems: { id: SettingsTab; icon: string; label: string }[] = [
-    { id: 'account', icon: 'fa-regular fa-user', label: '账号' },
-    { id: 'general', icon: 'fa-solid fa-gear', label: '通用' },
-    { id: 'knowledge', icon: 'fa-regular fa-book', label: '知识库' },
-    { id: 'skills', icon: 'fa-regular fa-lightbulb', label: '技能库' },
-    { id: 'about', icon: 'fa-regular fa-circle-info', label: '关于' },
-  ];
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
@@ -291,7 +263,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
         <div className="flex flex-1 overflow-hidden">
           {/* 左侧菜单 */}
           <div className="w-[180px] px-3 py-4 bg-white dark:bg-[#222222] border-r border-[#f0f0f0] dark:border-[#333333] flex flex-col gap-1">
-            {menuItems.map((item) => (
+            {MENU_ITEMS.map((item) => (
               <div
                 key={item.id}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors ${
@@ -406,7 +378,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
               {activeTab === 'account' && (
                 <div className="space-y-0">
                   {isLoadingConfig && (
-                    <div className="text-center text-[#999] py-4">加载配置中...</div>
+                    <div className="text-center text-[#999] dark:text-[#808080] py-4">加载配置中...</div>
                   )}
 
                   {/* 模型提供商 */}
@@ -415,7 +387,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                       <i className="fa-solid fa-cloud text-lg w-6 text-center text-[#888] dark:text-[#808080]"></i>
                       模型提供商
                     </div>
-                    <div className="relative">
+                    <div ref={dropdownRef} className="relative">
                       <div
                         className="provider-dropdown-trigger flex items-center gap-1.5 text-sm text-[#666] dark:text-[#a0a0a0] cursor-pointer hover:text-[#1a1a1a] dark:hover:text-white bg-[#f7f8fa] dark:bg-[#333333] px-3 py-1.5 rounded-lg min-w-[160px] justify-between"
                         onClick={() => setShowProviderDropdown(!showProviderDropdown)}

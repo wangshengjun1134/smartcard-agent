@@ -10,6 +10,7 @@ import { UserMenu } from '../Dialog/UserMenu';
 import { SettingsDialog } from '../Dialog/SettingsDialog';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow, currentMonitor } from '@tauri-apps/api/window';
+import { PhysicalPosition } from '@tauri-apps/api/window';
 
 export type ViewType = 'chat' | 'knowledge' | 'skills';
 
@@ -70,7 +71,6 @@ export function Sidebar({
       const mainWindow = getCurrentWindow();
       const outerSize = await mainWindow.outerSize();
       const innerSize = await mainWindow.innerSize();
-      const position = await mainWindow.outerPosition();
 
       // 获取当前显示器信息
       const monitor = await currentMonitor();
@@ -94,7 +94,7 @@ export function Sidebar({
       const mainY = Math.round(centerY - innerSize.height / 2);
 
       // 移动主窗口到左侧
-      await mainWindow.setPosition({ type: 'Physical', x: newMainX, y: mainY });
+      await mainWindow.setPosition(new PhysicalPosition(newMainX, mainY));
 
       // 创建控制台窗口，放置在主窗口右侧，高度与主窗口相同
       const webview = new WebviewWindow('apdu-console', {

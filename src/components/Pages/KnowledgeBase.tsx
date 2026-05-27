@@ -4,6 +4,7 @@ import { KnowledgeFormData } from '../../types/knowledge';
 import { useFileStructure } from '../../hooks/useFileStructure';
 import { useFileUpload } from '../../hooks/useFileUpload';
 import { useFileOperations } from '../../hooks/useFileOperations';
+import { findFolderByPath, buildBreadcrumb, getParentPath, getFolderNames, generateUniqueFolderName } from '../../utils/fileUtils';
 import { KnowledgeBaseHeader } from '../KnowledgeBase/KnowledgeBaseHeader';
 import { FileGridView } from '../KnowledgeBase/FileGridView';
 import { FileTreeView } from '../KnowledgeBase/FileTreeView';
@@ -37,49 +38,27 @@ export function KnowledgeBase() {
   // 文件操作 Hook
   const { createFolder, moveFile } = useFileOperations();
 
-  // 根据当前路径获取当前显示的文件列表
+  // 根据当前路径获取当前显示的文件列表（使用统一的工具函数）
   const currentFiles = useMemo(() => {
     if (!currentPath) {
       return fileStructure;
     }
 
-    // 递归查找当前路径对应的文件夹
-    const findFolder = (nodes: FileNode[], path: string): FileNode | null => {
-      for (const node of nodes) {
-        if (node.path === path && node.isFolder) {
-          return node;
-        }
-        if (node.children) {
-          const found = findFolder(node.children, path);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-
-    const folder = findFolder(fileStructure, currentPath);
+    const folder = findFolderByPath(fileStructure, currentPath);
     return folder?.children || [];
   }, [fileStructure, currentPath]);
 
-  // 获取当前路径的面包屑信息 (去掉 "docs" 部分)
+  // 获取当前路径的面包屑信息（使用统一的工具函数）
   const breadcrumb = useMemo(() => {
-    if (!currentPath) {
-      return [];
-    }
-
-    // 去掉路径中的 "/docs" 前缀
-    const normalizedPath = currentPath.replace(/^\/docs/, '');
-    const parts = normalizedPath.split('/').filter(Boolean);
-    
-    const crumbs = [];
-    let accumulatedPath = '';
-    for (const part of parts) {
-      accumulatedPath += '/docs/' + part;
-      crumbs.push({ name: part, path: accumulatedPath });
-    }
-
-    return crumbs;
+    return buildBreadcrumb(currentPath);
   }, [currentPath]);
+
+  // 查找当前目录的 parent_id（使用统一的工具函数）
+  const getCurrentFolderId = useCallback(() => {
+    if (!currentPath) return undefined;
+    const currentFolder = findFolderByPath(fileStructure, currentPath);
+    return currentFolder?.id;
+  }, [currentPath, fileStructure]);
 
   // 处理单击 (选中文件) - 图标视图
   const handleFileClick = (file: FileNode) => {
@@ -108,20 +87,9 @@ export function KnowledgeBase() {
     }
   };
 
-  // 返回上级文件夹
+  // 返回上级文件夹（使用统一的工具函数）
   const handleGoBack = () => {
-    // 去掉 "/docs" 前缀，获取实际路径部分
-    const normalizedPath = currentPath.replace(/^\/docs/, '');
-    const parts = normalizedPath.split('/').filter(Boolean);
-    parts.pop();
-
-    // 如果返回到根目录（parts 为空），设置 currentPath 为空字符串
-    if (parts.length === 0) {
-      setCurrentPath('');
-    } else {
-      // 否则重新构建完整路径
-      setCurrentPath('/docs/' + parts.join('/'));
-    }
+    setCurrentPath(getParentPath(currentPath));
   };
 
   // 点击面包屑导航
@@ -161,26 +129,9 @@ export function KnowledgeBase() {
   const handleKnowledgeSubmit = useCallback(
     async (file: File, _data: KnowledgeFormData) => {
       try {
-        // 查找当前目录的 parent_id
-        let parentId: string | undefined = undefined;
-        if (currentPath) {
-          const findFolder = (nodes: FileNode[], path: string): FileNode | null => {
-            for (const node of nodes) {
-              if (node.path === path && node.isFolder) {
-                return node;
-              }
-              if (node.children) {
-                const found = findFolder(node.children, path);
-                if (found) return found;
-              }
-            }
-            return null;
-          };
-          const currentFolder = findFolder(fileStructure, currentPath);
-          parentId = currentFolder?.id;
-        }
-
+        const parentId = getCurrentFolderId();
         const result = await uploadFile(file, parentId);
+        
         if (result) {
           // 上传成功后刷新文件列表
           refresh();
@@ -192,56 +143,24 @@ export function KnowledgeBase() {
         throw error;
       }
     },
-    [uploadFile, uploadState, currentPath, fileStructure, refresh]
+    [uploadFile, uploadState, getCurrentFolderId, refresh]
   );
 
-  // 新建文件夹
+  // 新建文件夹（使用统一的工具函数）
   const handleCreateFolder = useCallback(async () => {
-    // 生成文件夹名称
-    const generateFolderName = (existingNames: string[]): string => {
-      const baseName = '新建文件夹';
-      if (!existingNames.includes(baseName)) {
-        return baseName;
-      }
-      let counter = 2;
-      while (existingNames.includes(`${baseName} (${counter})`)) {
-        counter++;
-      }
-      return `${baseName} (${counter})`;
-    };
-
     // 获取当前目录下已有的文件夹名称
-    const existingNames = currentFiles
-      .filter(f => f.isFolder)
-      .map(f => f.name);
-
-    const newFolderName = generateFolderName(existingNames);
+    const existingNames = getFolderNames(currentFiles);
+    const newFolderName = generateUniqueFolderName(existingNames);
 
     // 查找当前目录的 parent_id
-    let parentId: string | undefined = undefined;
-    if (currentPath) {
-      const findFolder = (nodes: FileNode[], path: string): FileNode | null => {
-        for (const node of nodes) {
-          if (node.path === path && node.isFolder) {
-            return node;
-          }
-          if (node.children) {
-            const found = findFolder(node.children, path);
-            if (found) return found;
-          }
-        }
-        return null;
-      };
-      const currentFolder = findFolder(fileStructure, currentPath);
-      parentId = currentFolder?.id;
-    }
+    const parentId = getCurrentFolderId();
 
     // 调用后端 API 创建文件夹
     const result = await createFolder(newFolderName, parentId);
     if (result) {
       refresh();
     }
-  }, [currentFiles, currentPath, fileStructure, createFolder, refresh]);
+  }, [currentFiles, getCurrentFolderId, createFolder, refresh]);
 
   // 拖拽移动文件
   const handleMoveFile = useCallback(async (draggedFile: FileNode, targetFolder: FileNode) => {

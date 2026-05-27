@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Session, Message, Group } from '../types/session';
-import { getApiUrl, API_CONFIG, DEFAULT_HEADERS } from '../config/api';
+import { API_CONFIG } from '../config/api';
+import { apiFetch } from '../utils/api';
 
 // API response types
 interface SessionResponse {
@@ -28,65 +29,31 @@ interface GroupResponse {
   is_pinned: boolean;
 }
 
-// Convert API response to frontend type
-function toSession(res: SessionResponse): Session {
-  return {
-    id: res.id,
-    title: res.title,
-    createdAt: res.created_at,
-    updatedAt: res.updated_at,
-    messages: res.messages.map(toMessage),
-    groupId: res.group_id ?? undefined,
-    isPinned: res.is_pinned,
-  };
-}
+// Convert API response to frontend type（纯函数，无副作用）
+const toSession = (res: SessionResponse): Session => ({
+  id: res.id,
+  title: res.title,
+  createdAt: res.created_at,
+  updatedAt: res.updated_at,
+  messages: res.messages.map(toMessage),
+  groupId: res.group_id ?? undefined,
+  isPinned: res.is_pinned,
+});
 
-function toMessage(res: MessageResponse): Message {
-  return {
-    id: res.id,
-    role: res.role as 'user' | 'assistant',
-    content: res.content,
-    createdAt: res.created_at,
-  };
-}
+const toMessage = (res: MessageResponse): Message => ({
+  id: res.id,
+  role: res.role as 'user' | 'assistant',
+  content: res.content,
+  createdAt: res.created_at,
+});
 
-function toGroup(res: GroupResponse): Group {
-  return {
-    id: res.id,
-    name: res.name,
-    icon: res.icon,
-    createdAt: res.created_at,
-    isPinned: res.is_pinned,
-  };
-}
-
-// API helper functions with retry
-async function fetchJson<T>(url: string, options?: RequestInit, retries = 3): Promise<T> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          ...DEFAULT_HEADERS,
-          ...options?.headers,
-        },
-      });
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-      return response.json();
-    } catch (error) {
-      if (i < retries - 1) {
-        // Wait before retrying (wait longer each time)
-        await new Promise(resolve => setTimeout(resolve, 500 * (i + 1)));
-        console.log(`Retrying API request (${i + 1}/${retries}): ${url}`);
-      } else {
-        throw error;
-      }
-    }
-  }
-  throw new Error('Max retries exceeded');
-}
+const toGroup = (res: GroupResponse): Group => ({
+  id: res.id,
+  name: res.name,
+  icon: res.icon,
+  createdAt: res.created_at,
+  isPinned: res.is_pinned,
+});
 
 export function useSessions() {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -99,8 +66,8 @@ export function useSessions() {
     const loadData = async () => {
       try {
         const [sessionsData, groupsData] = await Promise.all([
-          fetchJson<SessionResponse[]>(getApiUrl(API_CONFIG.endpoints.session.list)),
-          fetchJson<GroupResponse[]>(getApiUrl(API_CONFIG.endpoints.session.groups)),
+          apiFetch<SessionResponse[]>(API_CONFIG.endpoints.session.list),
+          apiFetch<GroupResponse[]>(API_CONFIG.endpoints.session.groups),
         ]);
         setSessions(sessionsData.map(toSession));
         setGroups(groupsData.map(toGroup));
@@ -134,31 +101,38 @@ export function useSessions() {
   // ========== Group Operations ==========
 
   const createGroup = useCallback(async (name: string, icon: string): Promise<Group> => {
-    const data = await fetchJson<GroupResponse>(getApiUrl(API_CONFIG.endpoints.session.createGroup), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, icon }),
-    });
+    const data = await apiFetch<GroupResponse>(
+      API_CONFIG.endpoints.session.createGroup,
+      {
+        method: 'POST',
+        body: { name, icon },
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
     const group = toGroup(data);
     setGroups(prev => [group, ...prev]);
     return group;
   }, []);
 
   const updateGroup = useCallback(async (id: string, name: string) => {
-    await fetchJson<GroupResponse>(getApiUrl(API_CONFIG.endpoints.session.updateGroup(id)), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
+    await apiFetch<GroupResponse>(
+      API_CONFIG.endpoints.session.updateGroup(id),
+      {
+        method: 'PUT',
+        body: { name },
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
     setGroups(prev =>
       prev.map(g => g.id === id ? { ...g, name } : g)
     );
   }, []);
 
   const deleteGroup = useCallback(async (id: string) => {
-    await fetchJson(getApiUrl(API_CONFIG.endpoints.session.deleteGroup(id)), {
-      method: 'DELETE',
-    });
+    await apiFetch<void>(
+      API_CONFIG.endpoints.session.deleteGroup(id),
+      { method: 'DELETE' }
+    );
     setGroups(prev => prev.filter(g => g.id !== id));
     setSessions(prev => prev.filter(s => s.groupId !== id));
     if (currentSession?.groupId === id) {
@@ -171,11 +145,14 @@ export function useSessions() {
     const group = groups.find(g => g.id === id);
     if (!group) return;
     const newPinned = !group.isPinned;
-    await fetchJson<GroupResponse>(getApiUrl(API_CONFIG.endpoints.session.updateGroup(id)), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_pinned: newPinned }),
-    });
+    await apiFetch<GroupResponse>(
+      API_CONFIG.endpoints.session.updateGroup(id),
+      {
+        method: 'PUT',
+        body: { is_pinned: newPinned },
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
     setGroups(prev =>
       prev.map(g => g.id === id ? { ...g, isPinned: newPinned } : g)
     );
@@ -184,11 +161,14 @@ export function useSessions() {
   // ========== Session Operations ==========
 
   const createSession = useCallback(async (groupId?: string): Promise<Session> => {
-    const data = await fetchJson<SessionResponse>(getApiUrl(API_CONFIG.endpoints.session.create), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: '新会话', group_id: groupId }),
-    });
+    const data = await apiFetch<SessionResponse>(
+      API_CONFIG.endpoints.session.create,
+      {
+        method: 'POST',
+        body: { title: '新会话', group_id: groupId },
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
     const session = toSession(data);
     setSessions(prev => [session, ...prev]);
     setCurrentSessionId(session.id);
@@ -200,9 +180,10 @@ export function useSessions() {
   }, []);
 
   const deleteSession = useCallback(async (id: string) => {
-    await fetchJson(getApiUrl(API_CONFIG.endpoints.session.delete(id)), {
-      method: 'DELETE',
-    });
+    await apiFetch<void>(
+      API_CONFIG.endpoints.session.delete(id),
+      { method: 'DELETE' }
+    );
     setSessions(prev => prev.filter(s => s.id !== id));
     if (currentSessionId === id) {
       const remaining = sessions.filter(s => s.id !== id);
@@ -211,11 +192,14 @@ export function useSessions() {
   }, [currentSessionId, sessions]);
 
   const updateSessionTitle = useCallback(async (id: string, title: string) => {
-    await fetchJson<SessionResponse>(getApiUrl(API_CONFIG.endpoints.session.update(id)), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title }),
-    });
+    await apiFetch<SessionResponse>(
+      API_CONFIG.endpoints.session.update(id),
+      {
+        method: 'PUT',
+        body: { title },
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
     setSessions(prev =>
       prev.map(s => s.id === id ? { ...s, title, updatedAt: Date.now() } : s)
     );
@@ -225,22 +209,28 @@ export function useSessions() {
     const session = sessions.find(s => s.id === id);
     if (!session) return;
     const newPinned = !session.isPinned;
-    await fetchJson<SessionResponse>(getApiUrl(API_CONFIG.endpoints.session.update(id)), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_pinned: newPinned }),
-    });
+    await apiFetch<SessionResponse>(
+      API_CONFIG.endpoints.session.update(id),
+      {
+        method: 'PUT',
+        body: { is_pinned: newPinned },
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
     setSessions(prev =>
       prev.map(s => s.id === id ? { ...s, isPinned: newPinned, updatedAt: Date.now() } : s)
     );
   }, [sessions]);
 
   const moveSessionToGroup = useCallback(async (sessionId: string, groupId: string | undefined) => {
-    await fetchJson<SessionResponse>(getApiUrl(API_CONFIG.endpoints.session.update(sessionId)), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ group_id: groupId }),
-    });
+    await apiFetch<SessionResponse>(
+      API_CONFIG.endpoints.session.update(sessionId),
+      {
+        method: 'PUT',
+        body: { group_id: groupId },
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
     setSessions(prev =>
       prev.map(s => s.id === sessionId ? { ...s, groupId, updatedAt: Date.now() } : s)
     );
@@ -249,13 +239,16 @@ export function useSessions() {
   // ========== Message Operations ==========
 
   const addMessage = useCallback(async (sessionId: string, message: { role: string; content: string }): Promise<Message> => {
-    const data = await fetchJson<MessageResponse>(getApiUrl(API_CONFIG.endpoints.session.addMessage(sessionId)), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(message),
-    });
+    const data = await apiFetch<MessageResponse>(
+      API_CONFIG.endpoints.session.addMessage(sessionId),
+      {
+        method: 'POST',
+        body: message,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
     const newMessage = toMessage(data);
-    
+
     setSessions(prev =>
       prev.map(s => {
         if (s.id !== sessionId) return s;

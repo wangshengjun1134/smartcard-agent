@@ -1,4 +1,5 @@
 import { useState, useRef, DragEvent, ChangeEvent } from 'react';
+import { getFileIconEmoji, formatFileSize, isSupportedUploadType } from '../../utils/fileUtils';
 
 interface FileUploadZoneProps {
   file: File | null;
@@ -6,31 +7,6 @@ interface FileUploadZoneProps {
   isCalculatingHash: boolean;
   onFileSelect: (file: File) => void;
   onClearFile: () => void;
-}
-
-/**
- * 获取文件类型图标
- */
-function getFileIcon(fileName: string): string {
-  const ext = fileName.split('.').pop()?.toLowerCase() || '';
-
-  if (ext === 'pdf') return '📄';
-  if (['doc', 'docx'].includes(ext)) return '📝';
-  if (['md', 'markdown'].includes(ext)) return '📝';
-  if (['png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg'].includes(ext)) return '🖼️';
-  if (['txt', 'csv', 'json'].includes(ext)) return '📄';
-
-  return '📄';
-}
-
-/**
- * 格式化文件大小
- */
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
 /**
@@ -69,10 +45,8 @@ export function FileUploadZone({
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       const droppedFile = files[0];
-      // 验证文件类型
-      const validExtensions = ['pdf', 'doc', 'docx', 'md', 'txt', 'png', 'jpg', 'jpeg'];
-      const ext = droppedFile.name.split('.').pop()?.toLowerCase() || '';
-      if (validExtensions.includes(ext) || droppedFile.type.startsWith('image/')) {
+      // 使用统一的工具函数验证文件类型
+      if (isSupportedUploadType(droppedFile.name) || droppedFile.type.startsWith('image/')) {
         onFileSelect(droppedFile);
       }
     }
@@ -127,9 +101,9 @@ export function FileUploadZone({
       {/* 已选文件信息 */}
       {file ? (
         <div className="file-info flex items-center gap-3 w-full">
-          {/* 文件图标 */}
+          {/* 文件图标 - 使用统一工具函数 */}
           <div className="file-icon w-[40px] h-[40px] flex items-center justify-center text-[24px]">
-            {getFileIcon(file.name)}
+            {getFileIconEmoji(file.name)}
           </div>
 
           {/* 文件详情 */}
@@ -137,6 +111,7 @@ export function FileUploadZone({
             <div className="file-name text-[13px] font-medium text-[#1a1a1a] dark:text-white truncate">
               {file.name}
             </div>
+            {/* 文件大小 - 使用统一工具函数 */}
             <div className="file-size text-[12px] text-[#999] dark:text-[#808080]">
               {formatFileSize(file.size)}
             </div>

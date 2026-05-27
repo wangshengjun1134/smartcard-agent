@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useDialogClose } from '../../hooks/useDialog';
 
 interface UserMenuProps {
   isOpen: boolean;
@@ -9,36 +9,8 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ isOpen, onClose, bottom, onOpenSettings }: UserMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuRef = useDialogClose<HTMLDivElement>(isOpen, onClose);
   const { isDarkMode, toggleDarkMode } = useTheme();
-
-  // 点击外部关闭
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen, onClose]);
-
-  // ESC 关闭
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

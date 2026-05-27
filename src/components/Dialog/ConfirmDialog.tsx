@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useDialogClose } from '../../hooks/useDialog';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -9,33 +9,28 @@ interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel }: ConfirmDialogProps) {
-  // ESC 关闭
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onCancel();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onCancel]);
+  // 使用统一的对话框关闭Hook（ESC取消）
+  const dialogRef = useDialogClose<HTMLDivElement>(isOpen, onCancel);
 
   if (!isOpen) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black/30 flex items-center justify-center z-[60]"
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
     >
-      <div className="bg-white w-[320px] rounded-xl p-6 shadow-lg border border-[#f0f0f0]">
-        <h2 className="text-lg font-semibold text-[#1a1a1a] mb-3">{title}</h2>
-        <p className="text-sm text-[#666] mb-6">{message}</p>
-        
+      <div 
+        ref={dialogRef}
+        className="bg-white dark:bg-[#222222] w-[320px] rounded-xl p-6 shadow-lg border border-[#f0f0f0] dark:border-[#333333]"
+      >
+        <h2 className="text-lg font-semibold text-[#1a1a1a] dark:text-white mb-3">{title}</h2>
+        <p className="text-sm text-[#666] dark:text-[#b3b3b3] mb-6">{message}</p>
+
         <div className="flex justify-end gap-3">
           <button
-            className="px-6 py-2 rounded-lg text-sm border border-[#e5e7eb] bg-white text-[#333] hover:bg-[#f7f8fa] hover:border-[#d1d5db] transition-all"
+            className="px-6 py-2 rounded-lg text-sm border border-[#e5e7eb] dark:border-[#404040] bg-white dark:bg-[#333333] text-[#333] dark:text-white hover:bg-[#f7f8fa] dark:hover:bg-[#404040] hover:border-[#d1d5db] transition-all"
             onClick={onCancel}
           >
             取消

@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { isDarkMode, setThemeMode, initializeTheme, watchThemeChange } from '../utils/theme';
 
 interface ThemeContextType {
   isDarkMode: boolean;
@@ -8,39 +9,29 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  // 初始化时检查本地存储或系统偏好
+  // 初始化时从本地存储或系统偏好加载主题
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      setIsDarkMode(true);
-    } else if (savedTheme === 'light') {
-      setIsDarkMode(false);
-    } else {
-      // 检查系统偏好
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setIsDarkMode(prefersDark);
-    }
+    initializeTheme();
   }, []);
 
-  // 当主题变化时，更新 DOM 和本地存储
+  // 监听主题变化，更新状态
+  const [darkMode, setDarkModeState] = useState(isDarkMode());
+  
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDarkMode]);
+    const unwatch = watchThemeChange((isDark) => {
+      setDarkModeState(isDark);
+    });
+    return unwatch;
+  }, []);
 
   const toggleDarkMode = () => {
-    setIsDarkMode(prev => !prev);
+    const newIsDark = !darkMode;
+    setThemeMode(newIsDark);
+    setDarkModeState(newIsDark);
   };
 
   return (
-    <ThemeContext.Provider value={{ isDarkMode, toggleDarkMode }}>
+    <ThemeContext.Provider value={{ isDarkMode: darkMode, toggleDarkMode }}>
       {children}
     </ThemeContext.Provider>
   );

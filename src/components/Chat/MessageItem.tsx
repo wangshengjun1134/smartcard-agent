@@ -1,15 +1,17 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import { useEffect, useState } from 'react';
 import { Message } from '../../types/session';
+import { isDarkMode, watchThemeChange, ensureHighlightThemeLoaded } from '../../utils/theme';
 
 interface MessageItemProps {
   message: Message;
 }
 
-// 复制文本到剪贴板（支持 fallback）
+/**
+ * 复制文本到剪贴板（支持 fallback）
+ */
 async function copyToClipboard(text: string): Promise<boolean> {
   try {
     // 首先尝试现代 API
@@ -17,7 +19,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
       await navigator.clipboard.writeText(text);
       return true;
     }
-    
+
     // Fallback: 使用传统方法
     const textarea = document.createElement('textarea');
     textarea.value = text;
@@ -27,7 +29,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
     document.body.appendChild(textarea);
     textarea.focus();
     textarea.select();
-    
+
     const success = document.execCommand('copy');
     document.body.removeChild(textarea);
     return success;
@@ -37,12 +39,14 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-// 提取代码文本的辅助函数
+/**
+ * 提取代码文本的辅助函数
+ */
 function extractCodeText(element: React.ReactElement | null | undefined): string {
   if (!element) return '';
-  
+
   const children = element.props?.children;
-  
+
   if (typeof children === 'string') return children;
   if (typeof children === 'number') return String(children);
   if (Array.isArray(children)) {
@@ -55,47 +59,50 @@ function extractCodeText(element: React.ReactElement | null | undefined): string
   if (React.isValidElement(children)) {
     return extractCodeText(children);
   }
-  
+
   return '';
 }
 
 export function MessageItem({ message }: MessageItemProps) {
   const isUser = message.role === 'user';
-  const [isDark, setIsDark] = useState(false);
+  
+  // 使用ref存储取消监听函数，避免重复创建
+  const unwatchRef = useRef<(() => void) | null>(null);
 
-  // 检测当前主题
+  // 检测当前主题并监听变化（优化：只创建一次observer）
   useEffect(() => {
-    const checkDark = () => {
-      setIsDark(document.documentElement.classList.contains('dark'));
+    // 确保高亮样式已加载
+    ensureHighlightThemeLoaded(isDarkMode());
+
+    // 监听主题变化（使用统一的工具函数）
+    unwatchRef.current = watchThemeChange((newIsDark) => {
+      ensureHighlightThemeLoaded(newIsDark);
+    });
+
+    return () => {
+      // 清理监听
+      if (unwatchRef.current) {
+        unwatchRef.current();
+        unwatchRef.current = null;
+      }
     };
-    checkDark();
+  }, []); // 空依赖数组，只在组件挂载时执行一次
 
-    // 监听主题变化
-    const observer = new MutationObserver(checkDark);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-
-    return () => observer.disconnect();
-  }, []);
-
-  // 动态加载对应主题的高亮样式
-  useEffect(() => {
-    const linkId = 'hljs-theme';
-    const existingLink = document.getElementById(linkId) as HTMLLinkElement;
-
-    const themeUrl = isDark
-      ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css'
-      : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css';
-
-    if (existingLink) {
-      existingLink.href = themeUrl;
+  // 复制按钮点击处理
+  const handleCopyClick = async (e: React.MouseEvent<HTMLButtonElement>, codeText: string) => {
+    const btn = e.currentTarget;
+    const original = btn.innerText;
+    
+    const success = await copyToClipboard(codeText);
+    
+    if (success) {
+      btn.innerText = '✓ 已复制';
     } else {
-      const link = document.createElement('link');
-      link.id = linkId;
-      link.rel = 'stylesheet';
-      link.href = themeUrl;
-      document.head.appendChild(link);
+      btn.innerText = '复制失败';
     }
-  }, [isDark]);
+    
+    setTimeout(() => btn.innerText = original, 1500);
+  };
 
   return (
     <div className={`mb-4 ${isUser ? 'flex justify-end' : ''}`}>
@@ -112,7 +119,7 @@ export function MessageItem({ message }: MessageItemProps) {
                 const className = codeElement?.props?.className || '';
                 const languageMatch = className.match(/language-(\w+)/);
                 const language = languageMatch ? languageMatch[1] : 'code';
-                
+
                 // 提取代码文本用于复制
                 const codeText = extractCodeText(codeElement);
 
@@ -122,18 +129,7 @@ export function MessageItem({ message }: MessageItemProps) {
                       <span className="code-lang-tag">{language}</span>
                       <button
                         className="copy-btn"
-                        onClick={(e) => {
-                          copyToClipboard(codeText).then(success => {
-                            const btn = e.currentTarget;
-                            const original = btn.innerText;
-                            if (success) {
-                              btn.innerText = '✓ 已复制';
-                            } else {
-                              btn.innerText = '复制失败';
-                            }
-                            setTimeout(() => btn.innerText = original, 1500);
-                          });
-                        }}
+                        onClick={(e) => handleCopyClick(e, codeText)}
                       >
                         复制
                       </button>

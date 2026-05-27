@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { KnowledgeFormData, DEFAULT_FORM_DATA } from '../../types/knowledge';
 import { useFileSelection } from '../../hooks/useFileSelection';
 import { useFormValidation } from '../../hooks/useFormValidation';
+import { useDialogClose } from '../../hooks/useDialog';
 import { FileUploadZone } from './FileUploadZone';
 import { KnowledgeForm } from './KnowledgeForm';
 import { DrawerFooter } from './DrawerFooter';
@@ -24,7 +25,7 @@ export function AddKnowledgeDrawer({
   const { file, fileHash, isCalculatingHash, selectFile, clearFile } = useFileSelection();
 
   // 表单数据状态
-  const [formData, setFormData] = useState<KnowledgeFormData>(DEFAULT_FORM_DATA);
+  const [formData, setFormData] = useState<KnowledgeFormData>({ ...DEFAULT_FORM_DATA });
 
   // 表单验证
   const { errors, validate, clearErrors } = useFormValidation();
@@ -32,27 +33,21 @@ export function AddKnowledgeDrawer({
   // 提交状态
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 使用统一的对话框关闭Hook
+  const drawerRef = useDialogClose<HTMLDivElement>(isOpen, onClose, {
+    escapeEnabled: !isSubmitting,
+    clickOutsideEnabled: false, // 抽屉不支持点击外部关闭，需要点击遮罩
+  });
+
   // 抽屉打开时重置状态
   useEffect(() => {
     if (isOpen) {
       clearFile();
-      setFormData(DEFAULT_FORM_DATA);
+      setFormData({ ...DEFAULT_FORM_DATA });
       clearErrors();
       setIsSubmitting(false);
     }
   }, [isOpen, clearFile, clearErrors]);
-
-  // ESC 键关闭抽屉
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen && !isSubmitting) {
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isSubmitting, onClose]);
 
   // 文件选择后更新表单数据
   const handleFileSelect = useCallback(
@@ -150,6 +145,7 @@ export function AddKnowledgeDrawer({
 
       {/* 抽屉容器 */}
       <div
+        ref={drawerRef}
         className={`add-knowledge-drawer bg-white dark:bg-[#222222] border-l border-[#ececee] dark:border-[#333333] flex flex-col transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
