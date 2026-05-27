@@ -5,11 +5,22 @@ from pathlib import Path
 from typing import Optional
 
 
-# Default database paths relative to project root (smartcard-agent)
-# Path: python-service/src/utils/database.py -> smartcard-agent/data
-DEFAULT_DB_PATH = Path(__file__).parent.parent.parent.parent / "data" / "knowledge.db"
-DEFAULT_SESSION_DB_PATH = Path(__file__).parent.parent.parent.parent / "data" / "message.db"
-DEFAULT_STORAGE_PATH = Path(__file__).parent.parent.parent.parent / "data" / "docs"
+# Pre-computed database paths (computed once at module load)
+_DEFAULT_DB_PATH: Optional[Path] = None
+_DEFAULT_SESSION_DB_PATH: Optional[Path] = None
+_DEFAULT_STORAGE_PATH: Optional[Path] = None
+
+
+def _get_db_paths():
+    """Lazy compute database paths."""
+    global _DEFAULT_DB_PATH, _DEFAULT_SESSION_DB_PATH, _DEFAULT_STORAGE_PATH
+    if _DEFAULT_DB_PATH is None:
+        # Path: python-service/src/utils/database.py -> smartcard-agent/data
+        base_path = Path(__file__).parent.parent.parent.parent / "data"
+        _DEFAULT_DB_PATH = base_path / "knowledge.db"
+        _DEFAULT_SESSION_DB_PATH = base_path / "message.db"
+        _DEFAULT_STORAGE_PATH = base_path / "docs"
+    return _DEFAULT_DB_PATH, _DEFAULT_SESSION_DB_PATH, _DEFAULT_STORAGE_PATH
 
 
 def get_knowledge_db_connection(db_path: Optional[Path] = None) -> sqlite3.Connection:
@@ -21,7 +32,8 @@ def get_knowledge_db_connection(db_path: Optional[Path] = None) -> sqlite3.Conne
     Returns:
         SQLite connection object.
     """
-    path = db_path or DEFAULT_DB_PATH
+    default_db_path, _, _ = _get_db_paths()
+    path = db_path or default_db_path
 
     # Ensure data directory exists
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -47,7 +59,8 @@ def get_session_db_connection(db_path: Optional[Path] = None) -> sqlite3.Connect
     Returns:
         SQLite connection object.
     """
-    path = db_path or DEFAULT_SESSION_DB_PATH
+    _, default_session_db_path, _ = _get_db_paths()
+    path = db_path or default_session_db_path
 
     # Ensure data directory exists
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -177,6 +190,7 @@ def get_storage_path() -> Path:
     Returns:
         Path to data/docs directory.
     """
+    _, _, storage_path = _get_db_paths()
     # Ensure storage directory exists
-    DEFAULT_STORAGE_PATH.mkdir(parents=True, exist_ok=True)
-    return DEFAULT_STORAGE_PATH
+    storage_path.mkdir(parents=True, exist_ok=True)
+    return storage_path

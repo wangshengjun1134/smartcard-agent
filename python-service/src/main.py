@@ -28,10 +28,22 @@ async def lifespan(app: FastAPI):
     """
     import asyncio
     from llm.embeddings import get_embeddings
+    from llm.config import LLMConfig
+    from llm.llm import get_llm
 
     # Initialize databases on startup
     init_knowledge_database()
     init_session_database()
+
+    # Preload LLM config (warm up database connection)
+    print("Preloading LLM config...")
+    config = LLMConfig.get_config()
+    print(f"LLM config loaded: model={config.openai_model}")
+
+    # Preload LLM instance
+    print("Preloading LLM instance...")
+    await asyncio.to_thread(get_llm)
+    print("LLM instance loaded successfully")
 
     # Preload embeddings model in thread pool to avoid blocking
     print("Preloading embeddings model...")

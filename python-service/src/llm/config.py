@@ -1,6 +1,7 @@
 """LLM configuration module."""
 
 import os
+import time
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -17,6 +18,11 @@ CODING_PLAN_MODELS = [
     "qwen3-max-2026-01-23",
     "glm-4.7",
 ]
+
+# Cache for database config
+_config_cache: Optional["LLMConfig"] = None
+_cache_time: float = 0
+CACHE_EXPIRE_SECONDS = 300  # 5 minutes
 
 
 @dataclass
@@ -96,14 +102,36 @@ class LLMConfig:
 
     @classmethod
     def get_config(cls) -> "LLMConfig":
-        """Get LLM configuration.
+        """Get LLM configuration with caching.
 
-        Priority: database > environment variables.
+        Priority: cached db config > database > environment variables.
 
         Returns:
-            LLMConfig instance (from db or env).
+            LLMConfig instance (from cache, db or env).
         """
+        global _config_cache, _cache_time
+
+        # Check cache
+        current_time = time.time()
+        if _config_cache and (current_time - _cache_time) < CACHE_EXPIRE_SECONDS:
+            return _config_cache
+
+        # Load from database
         db_config = cls.from_db()
         if db_config and db_config.is_valid():
+            _config_cache = db_config
+            _cache_time = current_time
             return db_config
-        return cls.from_env()
+
+        # Fallback to env
+        env_config = cls.from_env()
+        _config_cache = env_config
+        _cache_time = current_time
+        return env_config
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """Clear the config cache."""
+        global _config_cache, _cache_time
+        _config_cache = None
+        _cache_time = 0
