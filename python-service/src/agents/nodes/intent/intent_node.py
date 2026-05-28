@@ -7,6 +7,8 @@ This node analyzes the user input and determines the execution intent:
 
 For greetings/fixed patterns, returns predefined response immediately.
 For other inputs, uses LLM to classify intent.
+
+Emits real-time thinking/routing events via event_queue.
 """
 
 from typing import Dict, Any
@@ -18,6 +20,11 @@ from agents.graph.state import (
     INTENT_NORMAL_CHAT,
     INTENT_RAG_DOMINANT,
     INTENT_TOOL_REASONING,
+)
+from agents.utils.events import (
+    emit_thinking,
+    emit_thinking_chunk,
+    emit_routing,
 )
 
 
@@ -124,6 +131,41 @@ def _check_fixed_response(user_input: str) -> Dict[str, Any] | None:
     return None
 
 
+def _get_routing_reason(intent: str, user_input: str) -> str:
+    """Get human-readable routing reason.
+
+    Args:
+        intent: Classified intent
+        user_input: Original user input
+
+    Returns:
+        Routing reason text.
+    """
+    reasons = {
+        INTENT_NORMAL_CHAT: "用户发起普通对话或问候，直接回复即可",
+        INTENT_RAG_DOMINANT: "用户查询智能卡相关知识，需要知识库检索",
+        INTENT_TOOL_REASONING: "用户请求执行卡片操作，需要工具调用和推理",
+    }
+    return reasons.get(intent, "未知意图类型")
+
+
+def _get_routing_target(intent: str) -> str:
+    """Get target node for routing.
+
+    Args:
+        intent: Classified intent
+
+    Returns:
+        Target node name.
+    """
+    targets = {
+        INTENT_NORMAL_CHAT: "direct_answer",
+        INTENT_RAG_DOMINANT: "rag_query",
+        INTENT_TOOL_REASONING: "planner",
+    }
+    return targets.get(intent, "direct_answer")
+
+
 @log_node_io("intent_node")
 async def intent_node(state: AgentState) -> Dict[str, Any]:
     """Intent analyzer node function (async version).
@@ -131,6 +173,8 @@ async def intent_node(state: AgentState) -> Dict[str, Any]:
     Analyzes the user input to determine execution intent.
     For greetings, returns fixed response immediately.
     For other inputs, uses LLM to classify intent.
+
+    Emits real-time thinking/routing events via event_queue.
 
     Args:
         state: Current agent state
@@ -145,21 +189,46 @@ async def intent_node(state: AgentState) -> Dict[str, Any]:
 
     user_input = state["user_input"]
 
-    # Check for fixed response first
+    # Step 1: 分析用户输入
+    await emit_thinking(state, "正在分析用户输入...")
+    await emit_thinking(state, f"用户输入: '{user_input}'")
+
+    # Step 2: 检查固定回复模式
+    await emit_thinking(state, "检查是否匹配固定回复模式...")
     fixed_result = _check_fixed_response(user_input)
+
     if fixed_result:
+        await emit_thinking(state, "✓ 匹配固定回复模式")
+        await emit_routing(
+            state,
+            from_node="intent",
+            to_node="direct_answer",
+            reason="匹配问候语/帮助请求等固定模式",
+        )
         logger.info(f"[DEBUG] intent_node: matched fixed response for '{user_input}'")
         return fixed_result
 
-    # Use LLM to classify intent
+    await emit_thinking(state, "✗ 未匹配固定回复模式")
+
+    # Step 3: LLM 意图分类
+    await emit_thinking(state, "调用 LLM 进行意图分类...")
+
     try:
         llm = get_llm()
         chain = INTENT_PROMPT | llm
 
-        result = await chain.ainvoke({"input": user_input})
+        # 使用流式接口获取 LLM 输出
+        accumulated_response = ""
+        async for chunk in chain.astream({"input": user_input}):
+            chunk_content = chunk.content if hasattr(chunk, 'content') else str(chunk)
+            accumulated_response += chunk_content
+            # 推送 LLM 输出片段
+            await emit_thinking_chunk(state, chunk_content)
 
-        # Parse intent from LLM response
-        intent_text = result.content.strip().upper()
+        # 解析意图
+        intent_text = accumulated_response.strip().upper()
+
+        await emit_thinking(state, f"LLM 输出: '{intent_text}'")
 
         # Normalize to valid intent
         valid_intents = [
@@ -174,16 +243,52 @@ async def intent_node(state: AgentState) -> Dict[str, Any]:
                 intent = valid_intent
                 break
 
+        await emit_thinking(state, f"意图分类结果: {intent}")
+
+        # Step 4: 路由决策
+        routing_target = _get_routing_target(intent)
+        routing_reason = _get_routing_reason(intent, user_input)
+
+        await emit_routing(
+            state,
+            from_node="intent",
+            to_node=routing_target,
+            reason=routing_reason,
+        )
+
         logger.info(f"[DEBUG] intent_node: LLM classified intent={intent}")
 
         return {
             "execution_intent": intent,
         }
+
     except LLMConfigError as e:
+        await emit_thinking(state, f"⚠ LLM 未配置: {e}")
+        await emit_routing(
+            state,
+            from_node="intent",
+            to_node="direct_answer",
+            reason="LLM 未配置，降级为普通对话",
+        )
         logger.warning(f"LLM not configured: {e}")
         return {
             "execution_intent": INTENT_NORMAL_CHAT,
             "final_response": "请先在设置中配置 API Key，然后再开始对话。",
+            "finished": True,
+        }
+
+    except Exception as e:
+        await emit_thinking(state, f"⚠ LLM 调用失败: {e}")
+        await emit_routing(
+            state,
+            from_node="intent",
+            to_node="direct_answer",
+            reason="LLM 调用失败，降级为普通对话",
+        )
+        logger.error(f"LLM call failed: {e}")
+        return {
+            "execution_intent": INTENT_NORMAL_CHAT,
+            "final_response": f"处理过程中发生错误，请稍后重试。",
             "finished": True,
         }
 
@@ -201,10 +306,15 @@ async def intent_node_with_llm(state: AgentState, llm: Any) -> Dict[str, Any]:
     """
     chain = INTENT_PROMPT | llm
 
-    result = await chain.ainvoke({"input": state["user_input"]})
+    # 流式输出
+    accumulated_response = ""
+    async for chunk in chain.astream({"input": state["user_input"]}):
+        chunk_content = chunk.content if hasattr(chunk, 'content') else str(chunk)
+        accumulated_response += chunk_content
+        await emit_thinking_chunk(state, chunk_content)
 
     # Parse intent from LLM response
-    intent_text = result.content.strip().upper()
+    intent_text = accumulated_response.strip().upper()
 
     # Normalize to valid intent
     valid_intents = [
@@ -215,7 +325,19 @@ async def intent_node_with_llm(state: AgentState, llm: Any) -> Dict[str, Any]:
 
     for valid_intent in valid_intents:
         if valid_intent in intent_text or valid_intent.replace("_", " ") in intent_text:
+            await emit_routing(
+                state,
+                from_node="intent",
+                to_node=_get_routing_target(valid_intent),
+                reason=_get_routing_reason(valid_intent, state["user_input"]),
+            )
             return {"execution_intent": valid_intent}
 
-    # Default fallback: RAG dominant
+    # Default fallback
+    await emit_routing(
+        state,
+        from_node="intent",
+        to_node="rag_query",
+        reason="无法明确分类，默认走知识查询路径",
+    )
     return {"execution_intent": INTENT_RAG_DOMINANT}

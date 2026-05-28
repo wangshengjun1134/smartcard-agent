@@ -5,6 +5,7 @@ all state during the agent workflow execution.
 """
 
 from typing import TypedDict, List, Dict, Any, Optional
+import asyncio
 
 
 # Execution status constants for StateRouter
@@ -122,12 +123,16 @@ class AgentState(TypedDict):
     finished: bool
     error: Optional[str]
 
+    # Real-time event streaming (for SSE)
+    event_queue: asyncio.Queue
 
-def create_initial_state(user_input: str) -> AgentState:
+
+def create_initial_state(user_input: str, event_queue: asyncio.Queue = None) -> AgentState:
     """Create initial agent state for a request.
 
     Args:
         user_input: User's input request
+        event_queue: Optional asyncio.Queue for real-time event streaming
 
     Returns:
         Initial AgentState dictionary.
@@ -155,6 +160,7 @@ def create_initial_state(user_input: str) -> AgentState:
         final_response="",
         finished=False,
         error=None,
+        event_queue=event_queue or asyncio.Queue(),
     )
 
 

@@ -7,13 +7,28 @@ import { ChatInput } from './components/Chat/ChatInput';
 import { ChatHeader } from './components/Chat/ChatHeader';
 import { KnowledgeBase } from './components/Pages/KnowledgeBase';
 import { SkillsBase } from './components/Pages/SkillsBase';
+import { ThinkingPanel } from './components/Chat/ThinkingPanel';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { getApiUrl, API_CONFIG, DEFAULT_HEADERS } from './config/api';
 import iconImage from './images/icon.png';
 
+// SSE event types for routing decision
+interface RoutingDecision {
+  type: 'routing';
+  from: string;
+  to: string;
+  reason: string;
+  confidence?: number;
+}
+
 function App() {
   const [currentView, setCurrentView] = useState<ViewType>('chat');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  
+  // Thinking process state
+  const [thinkingSteps, setThinkingSteps] = useState<string[]>([]);
+  const [routingDecision, setRoutingDecision] = useState<RoutingDecision | null>(null);
+  const [showThinking, setShowThinking] = useState(true);
 
   const {
     sessions,
@@ -37,6 +52,10 @@ function App() {
 
   // 发送消息处理（流式响应）
   const handleSendMessage = async (content: string) => {
+    // 清除之前的思考过程
+    setThinkingSteps([]);
+    setRoutingDecision(null);
+    
     // 如果没有当前会话，先创建一个
     let sessionId = currentSessionId;
     if (!sessionId) {
@@ -98,13 +117,40 @@ function App() {
             try {
               const data = JSON.parse(line.slice(6));
 
-              if (data.type === 'content') {
+              // 处理思考过程事件
+              if (data.type === 'thinking' || data.type === 'thinking_chunk') {
+                setThinkingSteps(prev => [...prev, data.content]);
+              } 
+              // 处理路由决策事件
+              else if (data.type === 'routing') {
+                setRoutingDecision({
+                  type: 'routing',
+                  from: data.from,
+                  to: data.to,
+                  reason: data.reason,
+                  confidence: data.confidence,
+                });
+              }
+              // 处理内容事件
+              else if (data.type === 'content') {
                 // 累积内容并更新消息
                 accumulatedContent += data.content;
                 updateMessageContent(sessionId, assistantMessageIndex, accumulatedContent);
-              } else if (data.type === 'done') {
+              } 
+              // 处理完成事件
+              else if (data.type === 'done') {
                 // 流式结束，更新最终消息
                 updateMessageContent(sessionId, assistantMessageIndex, data.response || accumulatedContent);
+                // 3秒后自动隐藏思考过程面板
+                setTimeout(() => setShowThinking(false), 3000);
+              }
+              // 处理节点执行状态事件
+              else if (data.type === 'node') {
+                console.log(`[Node] ${data.node} - ${data.status || 'executed'}`);
+              }
+              // 处理错误事件
+              else if (data.type === 'error') {
+                console.error(`[Error] ${data.error}`);
               }
             } catch (e) {
               console.error('Parse SSE error:', e);
@@ -148,6 +194,17 @@ function App() {
         {/* 内容区域 */}
         {hasMessages ? (
           <>
+            {/* 思考过程面板 */}
+            {(thinkingSteps.length > 0 || routingDecision) && showThinking && (
+              <div className="max-w-[700px] mx-auto px-5 pt-2">
+                <ThinkingPanel
+                  steps={thinkingSteps}
+                  routing={routingDecision}
+                  collapsed={false}
+                />
+              </div>
+            )}
+            
             {/* 消息列表 */}
             <div className="flex-1 min-h-0 flex flex-col">
               <MessageList

@@ -305,84 +305,84 @@ async def run_agent_async(user_input: str) -> Dict[str, Any]:
 async def stream_agent(user_input: str, session_id: str = None):
     """Stream agent execution with SSE format.
 
-    For NORMAL_CHAT intent, directly streams LLM response.
-    For other intents, streams LangGraph node execution.
+    Uses asyncio.Queue to receive real-time events from nodes,
+    providing live thinking/routing updates to the frontend.
 
     Args:
         user_input: User request text
         session_id: Session ID for saving assistant response
 
     Yields:
-        SSE formatted strings with incremental response.
+        SSE formatted strings with real-time events.
     """
     import logging
     logger = logging.getLogger(__name__)
     logger.info(f"[DEBUG] stream_agent called with input: {user_input}, session_id: {session_id}")
 
-    # First, determine intent (async call)
-    from agents.nodes.intent.intent_node import intent_node
-    initial_state = create_initial_state(user_input)
-    intent_result = await intent_node(initial_state)
-    intent = intent_result.get("execution_intent", "NORMAL_CHAT")
+    # Create event queue for real-time streaming
+    event_queue = asyncio.Queue()
 
-    logger.info(f"[DEBUG] Detected intent: {intent}")
-
-    # Check if intent_node already returned a fixed response
-    if intent_result.get("finished") and intent_result.get("final_response"):
-        fixed_response = intent_result["final_response"]
-        # Stream the fixed response for visual effect
-        for char in fixed_response:
-            yield f"data: {json.dumps({'type': 'content', 'content': char})}\n\n"
-            await asyncio.sleep(0.01)  # Small delay for visual effect
-        yield f"data: {json.dumps({'type': 'done', 'response': fixed_response})}\n\n"
-
-        # Save assistant response to database
-        if session_id:
-            _update_assistant_message(session_id, fixed_response)
-        return
+    # Create initial state with event_queue
+    initial_state = create_initial_state(user_input, event_queue)
 
     accumulated_response = ""
+    graph_done = False
+    final_result = None
 
-    # For NORMAL_CHAT, directly stream LLM response
-    if intent == INTENT_NORMAL_CHAT:
-        async for chunk in _stream_direct_response(user_input):
-            # Accumulate response from chunks
-            try:
-                data = json.loads(chunk.replace("data: ", "").strip())
-                if data.get("type") == "content":
-                    accumulated_response += data.get("content", "")
-                elif data.get("type") == "done":
-                    accumulated_response = data.get("response", accumulated_response)
-            except:
-                pass
-            yield chunk
+    # Start graph execution in background
+    async def run_graph():
+        """Run the graph and signal completion."""
+        nonlocal graph_done, final_result
+        graph = get_graph()
+        try:
+            final_result = await graph.ainvoke(initial_state)
+        except Exception as e:
+            logger.error(f"Graph execution error: {e}")
+            await event_queue.put({
+                "type": "error",
+                "error": str(e),
+            })
+        finally:
+            graph_done = True
+            # Signal end of stream
+            await event_queue.put({"type": "stream_end"})
 
-        # Save assistant response to database
-        if session_id and accumulated_response:
-            _update_assistant_message(session_id, accumulated_response)
-        return
+    graph_task = asyncio.create_task(run_graph())
 
-    # For other intents, stream LangGraph execution
-    graph = get_graph()
+    # Main loop: poll queue and yield SSE events
+    while True:
+        # Check if graph is done and queue is empty
+        if graph_done and event_queue.empty():
+            break
 
-    async for event in graph.astream(initial_state):
-        # event is a dict: {node_name: node_output}
-        for node_name, node_output in event.items():
-            # Yield node execution status
-            yield f"data: {json.dumps({'type': 'node', 'node': node_name})}\n\n"
+        # Try to get event from queue (with timeout)
+        try:
+            event = await asyncio.wait_for(event_queue.get(), timeout=0.05)
+        except asyncio.TimeoutError:
+            # No event available, continue polling
+            continue
 
-            # If node produced final_response, yield it
-            if "final_response" in node_output:
-                response = node_output.get("final_response", "")
-                if response:
-                    yield f"data: {json.dumps({'type': 'content', 'content': response})}\n\n"
-                    accumulated_response = response
+        # Format and yield SSE event
+        yield _format_event_sse(event)
 
-            # Yield finish status if completed
-            if node_output.get("finished"):
-                yield f"data: {json.dumps({'type': 'done', 'response': accumulated_response})}\n\n"
+        # Track content for final response
+        if event.get("type") == "content":
+            accumulated_response += event.get("data", "")
+        elif event.get("type") == "done":
+            accumulated_response = event.get("response", accumulated_response)
 
-    # Final yield if not already done
+    # Wait for graph task to complete
+    await graph_task
+
+    # If we have a final result, ensure we yield done event
+    if final_result and final_result.get("final_response"):
+        final_response = final_result.get("final_response")
+        if final_response != accumulated_response:
+            yield f"data: {json.dumps({'type': 'content', 'content': final_response})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'response': final_response})}\n\n"
+        accumulated_response = final_response
+
+    # Fallback if no response
     if not accumulated_response:
         yield f"data: {json.dumps({'type': 'done', 'response': '处理完成'})}\n\n"
         accumulated_response = "处理完成"
@@ -390,6 +390,78 @@ async def stream_agent(user_input: str, session_id: str = None):
     # Save assistant response to database
     if session_id and accumulated_response:
         _update_assistant_message(session_id, accumulated_response)
+
+
+def _format_event_sse(event: Dict[str, Any]) -> str:
+    """Format an event dict as SSE string.
+
+    Args:
+        event: Event dictionary with type and data
+
+    Returns:
+        SSE formatted string.
+    """
+    event_type = event.get("type", "unknown")
+
+    # Format based on event type
+    if event_type == "thinking":
+        return f"data: {json.dumps({'type': 'thinking', 'content': event.get('data', '')})}\n\n"
+
+    elif event_type == "thinking_chunk":
+        return f"data: {json.dumps({'type': 'thinking_chunk', 'content': event.get('data', '')})}\n\n"
+
+    elif event_type == "routing":
+        routing_data = {
+            "type": "routing",
+            "from": event.get("from", ""),
+            "to": event.get("to", ""),
+            "reason": event.get("reason", ""),
+        }
+        if event.get("confidence"):
+            routing_data["confidence"] = event.get("confidence")
+        return f"data: {json.dumps(routing_data)}\n\n"
+
+    elif event_type == "action":
+        action_data = {
+            'type': 'action',
+            'action': event.get('action', ''),
+            'status': event.get('status', ''),
+            'details': event.get('details', {}),
+        }
+        return f"data: {json.dumps(action_data)}\n\n"
+
+    elif event_type == "observation":
+        obs_data = {
+            'type': 'observation',
+            'skill': event.get('skill', ''),
+            'success': event.get('success', False),
+            'result': event.get('result'),
+            'error': event.get('error'),
+        }
+        return f"data: {json.dumps(obs_data)}\n\n"
+
+    elif event_type == "node_start":
+        return f"data: {json.dumps({'type': 'node', 'node': event.get('node', ''), 'status': 'start'})}\n\n"
+
+    elif event_type == "node_end":
+        return f"data: {json.dumps({'type': 'node', 'node': event.get('node', ''), 'status': 'end'})}\n\n"
+
+    elif event_type == "content":
+        return f"data: {json.dumps({'type': 'content', 'content': event.get('data', '')})}\n\n"
+
+    elif event_type == "done":
+        return f"data: {json.dumps({'type': 'done', 'response': event.get('response', '')})}\n\n"
+
+    elif event_type == "error":
+        return f"data: {json.dumps({'type': 'error', 'error': event.get('error', '')})}\n\n"
+
+    elif event_type == "stream_end":
+        # Internal signal, don't emit to SSE
+        return ""
+
+    else:
+        # Unknown event type, just pass through
+        return f"data: {json.dumps(event)}\n\n"
 
 
 def _update_assistant_message(session_id: str, content: str):
@@ -444,86 +516,6 @@ def _update_assistant_message(session_id: str, content: str):
         )
         conn.commit()
         conn.close()
-
-
-async def _stream_direct_response(user_input: str):
-    """Stream direct response for NORMAL_CHAT intent.
-
-    Checks predefined patterns first, then falls back to LLM streaming.
-
-    Args:
-        user_input: User request text
-
-    Yields:
-        SSE formatted strings with incremental response.
-    """
-    import logging
-    logger = logging.getLogger(__name__)
-
-    input_lower = user_input.lower()
-
-    # Predefined responses (no streaming needed)
-    predefined_response = None
-
-    if any(word in input_lower for word in ["你好", "hello", "hi", "您好"]):
-        predefined_response = "您好！我是智能卡操作助手，可以帮您进行读卡、APDU命令执行等操作，也可以回答智能卡相关的技术问题。"
-
-    elif any(word in input_lower for word in ["帮助", "help", "怎么用", "功能"]):
-        predefined_response = """我可以帮助您完成以下任务：
-
-1. **读取卡片信息**：读取IMSI、ICCID、号码等
-2. **执行APDU命令**：发送和执行APDU命令
-3. **探测卡片能力**：识别卡片类型和应用
-4. **知识查询**：解答智能卡技术问题
-
-请告诉我您需要什么帮助？"""
-
-    elif any(word in input_lower for word in ["谢谢", "感谢", "thanks"]):
-        predefined_response = "不客气！如果还有其他问题，随时可以问我。"
-
-    if predefined_response:
-        # Stream predefined response character by character for visual effect
-        for char in predefined_response:
-            yield f"data: {json.dumps({'type': 'content', 'content': char})}\n\n"
-            await asyncio.sleep(0.01)  # Small delay for visual effect
-        yield f"data: {json.dumps({'type': 'done', 'response': predefined_response})}\n\n"
-        return
-
-    # Fallback to LLM streaming
-    try:
-        from llm.llm import get_llm, LLMConfigError
-        from langchain_core.prompts import ChatPromptTemplate
-
-        llm = get_llm()
-        prompt = ChatPromptTemplate.from_template("""
-你是一个智能卡操作助手。
-
-用户提出了一个普通问题，请直接回答。
-
-用户输入: {input}
-
-请给出简洁、友好的回答。
-""")
-        chain = prompt | llm
-
-        accumulated = ""
-        async for chunk in chain.astream({"input": user_input}):
-            content = chunk.content if hasattr(chunk, 'content') else str(chunk)
-            if content:
-                accumulated += content
-                yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
-
-        yield f"data: {json.dumps({'type': 'done', 'response': accumulated})}\n\n"
-
-    except LLMConfigError:
-        fallback = "请先在设置中配置 API Key，然后再开始对话。"
-        yield f"data: {json.dumps({'type': 'content', 'content': fallback})}\n\n"
-        yield f"data: {json.dumps({'type': 'done', 'response': fallback})}\n\n"
-    except Exception as e:
-        logger.warning(f"LLM streaming failed: {e}")
-        fallback = f"我收到了您的消息：'{user_input}'。如果您需要进行智能卡操作或查询相关知识，请告诉我具体需求。"
-        yield f"data: {json.dumps({'type': 'content', 'content': fallback})}\n\n"
-        yield f"data: {json.dumps({'type': 'done', 'response': fallback})}\n\n"
 
 
 class AgentRunner:
