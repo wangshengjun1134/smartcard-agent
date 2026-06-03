@@ -83,7 +83,7 @@ GREETING_PATTERNS = [
 INTENT_PROMPT = ChatPromptTemplate.from_template("""
 你是一个智能卡操作意图分析器。
 
-分析用户请求，确定执行意图类型。
+分析用户请求，确定执行意图类型，并给出分析解释。
 
 可选意图类型：
 - NORMAL_CHAT: 普通问答，如问候、帮助请求，直接回复即可
@@ -92,9 +92,22 @@ INTENT_PROMPT = ChatPromptTemplate.from_template("""
 
 用户请求: {input}
 
-请返回意图类型，仅返回类型名称，不要解释。
+请返回 JSON 格式（不要其他内容）：
+{{"intent": "意图类型名称", "confidence": 0.0-1.0之间的置信度, "reasoning": "分析过程的详细解释"}}
 
-意图类型:
+示例1：
+用户请求: 你好
+返回: {{"intent": "NORMAL_CHAT", "confidence": 0.99, "reasoning": "用户发送问候语，无需知识查询或工具调用，直接回复即可"}}
+
+示例2：
+用户请求: 读取IMSI
+返回: {{"intent": "TOOL_REASONING", "confidence": 0.95, "reasoning": "用户请求执行具体的卡片读取操作，需要连接卡片、选择文件、读取数据等步骤，属于工具推理主导"}}
+
+示例3：
+用户请求: 什么是SCP03安全通道
+返回: {{"intent": "RAG_DOMINANT", "confidence": 0.92, "reasoning": "用户在询问智能卡技术概念，需要从知识库中检索SCP03相关知识进行解释，无需实际操作卡片"}}
+
+返回:
 """)
 
 
@@ -129,6 +142,84 @@ def _check_fixed_response(user_input: str) -> Dict[str, Any] | None:
                 }
 
     return None
+
+
+def _parse_intent_json(response_text: str) -> tuple[str, str, float]:
+    """Parse intent from LLM JSON response, with fallback to legacy parsing.
+
+    Args:
+        response_text: Raw LLM response text
+
+    Returns:
+        Tuple of (intent, reasoning, confidence)
+    """
+    import json
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Clean up response text - extract JSON from markdown code blocks if present
+        cleaned = response_text.strip()
+        if cleaned.startswith("```"):
+            # Extract JSON from code block
+            lines = cleaned.split("\n")
+            json_lines = []
+            in_code_block = False
+            for line in lines:
+                if line.startswith("```"):
+                    in_code_block = not in_code_block
+                    continue
+                if in_code_block:
+                    json_lines.append(line)
+            cleaned = "\n".join(json_lines)
+
+        # Parse JSON
+        parsed = json.loads(cleaned)
+        intent = parsed.get("intent", "").upper().strip()
+        reasoning = parsed.get("reasoning", "")
+        confidence = parsed.get("confidence", 0.8)
+
+        # Validate intent
+        valid_intents = [INTENT_NORMAL_CHAT, INTENT_RAG_DOMINANT, INTENT_TOOL_REASONING]
+        if intent not in valid_intents:
+            logger.warning(f"Invalid intent from JSON: {intent}, falling back to default")
+            return INTENT_NORMAL_CHAT, reasoning, confidence
+
+        # Clamp confidence to 0.0-1.0
+        confidence = max(0.0, min(1.0, float(confidence)))
+
+        return intent, reasoning, confidence
+
+    except (json.JSONDecodeError, KeyError, ValueError) as e:
+        # Fallback to legacy string matching
+        logger.warning(f"JSON parse failed: {e}, using legacy fallback")
+        return _parse_intent_legacy(response_text)
+
+
+def _parse_intent_legacy(response_text: str) -> tuple[str, str, float]:
+    """Legacy intent parsing fallback - string matching.
+
+    Args:
+        response_text: Raw LLM response text
+
+    Returns:
+        Tuple of (intent, reasoning, confidence)
+    """
+    intent_text = response_text.strip().upper()
+
+    valid_intents = [
+        INTENT_NORMAL_CHAT,
+        INTENT_RAG_DOMINANT,
+        INTENT_TOOL_REASONING,
+    ]
+
+    for valid_intent in valid_intents:
+        if valid_intent in intent_text or valid_intent.replace("_", " ") in intent_text:
+            return valid_intent, "", 0.8
+
+    # Default fallback
+    return INTENT_NORMAL_CHAT, "", 0.5
 
 
 def _get_routing_reason(intent: str, user_input: str) -> str:
@@ -189,63 +280,31 @@ async def intent_node(state: AgentState) -> Dict[str, Any]:
 
     user_input = state["user_input"]
 
-    # Step 1: 分析用户输入
-    await emit_thinking(state, "正在分析用户输入...")
-    await emit_thinking(state, f"用户输入: '{user_input}'")
-
-    # Step 2: 检查固定回复模式
-    await emit_thinking(state, "检查是否匹配固定回复模式...")
+    # 检查固定回复模式
     fixed_result = _check_fixed_response(user_input)
 
     if fixed_result:
-        await emit_thinking(state, "✓ 匹配固定回复模式")
-        await emit_routing(
-            state,
-            from_node="intent",
-            to_node="direct_answer",
-            reason="匹配问候语/帮助请求等固定模式",
-        )
         logger.info(f"[DEBUG] intent_node: matched fixed response for '{user_input}'")
         return fixed_result
 
-    await emit_thinking(state, "✗ 未匹配固定回复模式")
-
-    # Step 3: LLM 意图分类
+    # LLM 意图分类
     await emit_thinking(state, "调用 LLM 进行意图分类...")
 
     try:
         llm = get_llm()
         chain = INTENT_PROMPT | llm
 
-        # 使用流式接口获取 LLM 输出
+        # 流式调用 LLM 并实时输出
         accumulated_response = ""
         async for chunk in chain.astream({"input": user_input}):
             chunk_content = chunk.content if hasattr(chunk, 'content') else str(chunk)
             accumulated_response += chunk_content
-            # 推送 LLM 输出片段
             await emit_thinking_chunk(state, chunk_content)
 
-        # 解析意图
-        intent_text = accumulated_response.strip().upper()
+        # 解析意图用于后续路由（不额外输出思考步骤，直接走路由）
+        intent, reasoning, confidence = _parse_intent_json(accumulated_response)
 
-        await emit_thinking(state, f"LLM 输出: '{intent_text}'")
-
-        # Normalize to valid intent
-        valid_intents = [
-            INTENT_NORMAL_CHAT,
-            INTENT_RAG_DOMINANT,
-            INTENT_TOOL_REASONING,
-        ]
-
-        intent = INTENT_NORMAL_CHAT  # Default
-        for valid_intent in valid_intents:
-            if valid_intent in intent_text or valid_intent.replace("_", " ") in intent_text:
-                intent = valid_intent
-                break
-
-        await emit_thinking(state, f"意图分类结果: {intent}")
-
-        # Step 4: 路由决策
+        # 路由决策
         routing_target = _get_routing_target(intent)
         routing_reason = _get_routing_reason(intent, user_input)
 
@@ -254,12 +313,15 @@ async def intent_node(state: AgentState) -> Dict[str, Any]:
             from_node="intent",
             to_node=routing_target,
             reason=routing_reason,
+            confidence=confidence,
         )
 
-        logger.info(f"[DEBUG] intent_node: LLM classified intent={intent}")
+        logger.info(f"[DEBUG] intent_node: LLM classified intent={intent}, confidence={confidence}")
 
         return {
             "execution_intent": intent,
+            "intent_reasoning": reasoning,
+            "intent_confidence": confidence,
         }
 
     except LLMConfigError as e:

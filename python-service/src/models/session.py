@@ -14,6 +14,8 @@ class Message(BaseModel):
     id: str
     role: str  # 'user' | 'assistant'
     content: str
+    thinking_process: Optional[str] = None  # JSON with thinking steps and routing
+    thinking_content: Optional[str] = None  # Raw thinking text for display
     created_at: int  # Unix timestamp (milliseconds)
 
 
@@ -22,6 +24,8 @@ class MessageCreate(BaseModel):
 
     role: str
     content: str
+    thinking_process: Optional[str] = None
+    thinking_content: Optional[str] = None
 
 
 class Session(BaseModel):

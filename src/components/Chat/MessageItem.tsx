@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -65,7 +65,8 @@ function extractCodeText(element: React.ReactElement | null | undefined): string
 
 export function MessageItem({ message }: MessageItemProps) {
   const isUser = message.role === 'user';
-  
+  const [showThinking, setShowThinking] = useState(false);
+
   // 使用ref存储取消监听函数，避免重复创建
   const unwatchRef = useRef<(() => void) | null>(null);
 
@@ -88,26 +89,50 @@ export function MessageItem({ message }: MessageItemProps) {
     };
   }, []); // 空依赖数组，只在组件挂载时执行一次
 
+  const hasThinking = !isUser && message.thinkingContent;
+
   // 复制按钮点击处理
   const handleCopyClick = async (e: React.MouseEvent<HTMLButtonElement>, codeText: string) => {
     const btn = e.currentTarget;
     const original = btn.innerText;
-    
+
     const success = await copyToClipboard(codeText);
-    
+
     if (success) {
       btn.innerText = '✓ 已复制';
     } else {
       btn.innerText = '复制失败';
     }
-    
+
     setTimeout(() => btn.innerText = original, 1500);
   };
 
   return (
     <div className={`mb-4 ${isUser ? 'flex justify-end' : ''}`}>
       <div className={`${isUser ? 'message-user max-w-[80%]' : 'message-ai'}`}>
-        {/* 消息内容 */}
+        {/* 思考过程折叠按钮 */}
+        {hasThinking && (
+          <div className="mb-2">
+            <button
+              onClick={() => setShowThinking(!showThinking)}
+              className="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              <span className={`transform transition-transform ${showThinking ? 'rotate-90' : ''}`}>
+                ▶
+              </span>
+              <span>思考过程</span>
+            </button>
+          </div>
+        )}
+
+        {/* 思考过程内容（纯文本，不使用Markdown） */}
+        {hasThinking && showThinking && (
+          <div className="mb-3 p-4 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-600 whitespace-pre-wrap break-words">
+            {message.thinkingContent}
+          </div>
+        )}
+
+        {/* 消息内容（Markdown渲染） */}
         <div className="markdown-body text-[#1a1a1a] break-words leading-relaxed">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}

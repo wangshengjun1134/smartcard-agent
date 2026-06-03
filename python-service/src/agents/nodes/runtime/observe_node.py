@@ -127,6 +127,10 @@ def determine_execution_status(
         if is_goal_complete(goal, plan_steps, current_step_index):
             return EXEC_STATUS_SUCCESS_COMPLETE
 
+        # Check if the skill itself marked as finished (e.g., RAG lookup)
+        if last_observation.get("finished", False):
+            return EXEC_STATUS_SUCCESS_COMPLETE
+
         # Check if there are more steps
         if plan_steps and current_step_index < len(plan_steps) - 1:
             return EXEC_STATUS_SUCCESS_CONTINUE

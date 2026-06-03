@@ -26,7 +26,7 @@ async def direct_answer_node(state: AgentState) -> Dict[str, Any]:
     user_input = state["user_input"]
 
     # Generate simple response
-    final_response = await generate_direct_response(user_input)
+    final_response = await generate_direct_response(user_input, state)
 
     return {
         "final_response": final_response,
@@ -34,11 +34,12 @@ async def direct_answer_node(state: AgentState) -> Dict[str, Any]:
     }
 
 
-async def generate_direct_response(user_input: str) -> str:
+async def generate_direct_response(user_input: str, state: AgentState = None) -> str:
     """Generate direct response for user input.
 
     Args:
         user_input: User request text
+        state: Agent state for streaming events
 
     Returns:
         Direct response string.
@@ -64,10 +65,11 @@ async def generate_direct_response(user_input: str) -> str:
     if any(word in input_lower for word in ["谢谢", "感谢", "thanks"]):
         return "不客气！如果还有其他问题，随时可以问我。"
 
-    # Fallback to LLM
+    # Fallback to LLM with streaming
     try:
         from llm.llm import get_llm, LLMConfigError
         from langchain_core.prompts import ChatPromptTemplate
+        from agents.utils.events import emit_content
 
         llm = get_llm()
         prompt = ChatPromptTemplate.from_template("""
@@ -80,8 +82,16 @@ async def generate_direct_response(user_input: str) -> str:
 请给出简洁、友好的回答。
 """)
         chain = prompt | llm
-        result = await chain.ainvoke({"input": user_input})
-        return result.content.strip()
+
+        # Stream response
+        full_response = ""
+        async for chunk in chain.astream({"input": user_input}):
+            chunk_content = chunk.content if hasattr(chunk, 'content') else str(chunk)
+            full_response += chunk_content
+            if state:
+                await emit_content(state, chunk_content)
+
+        return full_response.strip()
     except LLMConfigError:
         return "请先在设置中配置 API Key，然后再开始对话。"
     except Exception as e:

@@ -18,6 +18,8 @@ interface MessageResponse {
   id: string;
   role: string;
   content: string;
+  thinking_process?: string;
+  thinking_content?: string;
   created_at: number;
 }
 
@@ -44,6 +46,8 @@ const toMessage = (res: MessageResponse): Message => ({
   id: res.id,
   role: res.role as 'user' | 'assistant',
   content: res.content,
+  thinkingProcess: res.thinking_process,
+  thinkingContent: res.thinking_content,
   createdAt: res.created_at,
 });
 
@@ -270,7 +274,7 @@ export function useSessions() {
   }, []);
 
   // 流式更新消息内容（仅本地更新，不调用 API）
-  const updateMessageContent = useCallback((sessionId: string, messageIndex: number, content: string) => {
+  const updateMessageContent = useCallback((sessionId: string, messageIndex: number, content: string, thinkingProcess?: string, thinkingContent?: string) => {
     setSessions(prev =>
       prev.map(s => {
         if (s.id !== sessionId) return s;
@@ -279,6 +283,8 @@ export function useSessions() {
           updatedMessages[messageIndex] = {
             ...updatedMessages[messageIndex],
             content,
+            ...(thinkingProcess !== undefined && { thinkingProcess }),
+            ...(thinkingContent !== undefined && { thinkingContent }),
           };
         }
         return {

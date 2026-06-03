@@ -156,11 +156,27 @@ def init_session_database(db_path: Optional[Path] = None) -> None:
             session_id TEXT NOT NULL,
             role TEXT NOT NULL,
             content TEXT NOT NULL,
+            thinking_process TEXT,
+            thinking_content TEXT,
             created_at INTEGER NOT NULL,
 
             FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
         )
     """)
+
+    # Add thinking_process column if it doesn't exist (migration)
+    try:
+        cursor.execute("ALTER TABLE messages ADD COLUMN thinking_process TEXT")
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
+
+    # Add thinking_content column if it doesn't exist (migration)
+    try:
+        cursor.execute("ALTER TABLE messages ADD COLUMN thinking_content TEXT")
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
 
     # Create api_config table for storing LLM provider settings
     cursor.execute("""

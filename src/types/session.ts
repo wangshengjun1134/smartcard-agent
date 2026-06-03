@@ -2,6 +2,8 @@ export interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  thinkingProcess?: string;  // JSON string with thinking steps and routing (for storage)
+  thinkingContent?: string;  // Raw thinking text for display (not markdown-parsed)
   createdAt: number;
 }
 

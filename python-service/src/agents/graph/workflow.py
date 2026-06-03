@@ -326,6 +326,8 @@ async def stream_agent(user_input: str, session_id: str = None):
     initial_state = create_initial_state(user_input, event_queue)
 
     accumulated_response = ""
+    thinking_steps = []  # 收集思考过程
+    routing_decision = None  # 收集路由决策
     graph_done = False
     final_result = None
 
@@ -370,6 +372,24 @@ async def stream_agent(user_input: str, session_id: str = None):
             accumulated_response += event.get("data", "")
         elif event.get("type") == "done":
             accumulated_response = event.get("response", accumulated_response)
+        # 收集思考过程
+        elif event.get("type") == "thinking":
+            thinking_steps.append(event.get("data", ""))
+        elif event.get("type") == "thinking_chunk":
+            # thinking_chunk 追加到最后一步
+            chunk = event.get("data", "")
+            if thinking_steps:
+                thinking_steps[-1] += chunk
+            else:
+                thinking_steps.append(chunk)
+        # 收集路由决策
+        elif event.get("type") == "routing":
+            routing_decision = {
+                "from": event.get("from", ""),
+                "to": event.get("to", ""),
+                "reason": event.get("reason", ""),
+                "confidence": event.get("confidence"),
+            }
 
     # Wait for graph task to complete
     await graph_task
@@ -387,9 +407,17 @@ async def stream_agent(user_input: str, session_id: str = None):
         yield f"data: {json.dumps({'type': 'done', 'response': '处理完成'})}\n\n"
         accumulated_response = "处理完成"
 
-    # Save assistant response to database
+    # Save assistant response to database with thinking process
     if session_id and accumulated_response:
-        _update_assistant_message(session_id, accumulated_response)
+        # 将思考过程保存为 JSON 格式
+        thinking_data = {
+            "steps": thinking_steps,
+            "routing": routing_decision,
+        }
+        thinking_json = json.dumps(thinking_data, ensure_ascii=False)
+        # 将思考过程也保存为纯文本用于显示
+        thinking_text = '\n\n'.join(thinking_steps) if thinking_steps else None
+        _update_assistant_message(session_id, accumulated_response, thinking_json, thinking_text)
 
 
 def _format_event_sse(event: Dict[str, Any]) -> str:
@@ -464,12 +492,14 @@ def _format_event_sse(event: Dict[str, Any]) -> str:
         return f"data: {json.dumps(event)}\n\n"
 
 
-def _update_assistant_message(session_id: str, content: str):
+def _update_assistant_message(session_id: str, content: str, thinking_process: str = None, thinking_content: str = None):
     """Update the last assistant message in database.
 
     Args:
         session_id: Session ID
         content: Message content to update
+        thinking_process: Optional thinking/reasoning process JSON string
+        thinking_content: Optional raw thinking text
     """
     from utils.database import get_session_db_connection
 
@@ -491,8 +521,8 @@ def _update_assistant_message(session_id: str, content: str):
     if row:
         message_id = row["id"]
         cursor.execute(
-            "UPDATE messages SET content = ? WHERE id = ?",
-            (content, message_id)
+            "UPDATE messages SET content = ?, thinking_process = ?, thinking_content = ? WHERE id = ?",
+            (content, thinking_process, thinking_content, message_id)
         )
         conn.commit()
         conn.close()
@@ -504,10 +534,10 @@ def _update_assistant_message(session_id: str, content: str):
         created_at = int(time.time() * 1000)
         cursor.execute(
             """
-            INSERT INTO messages (id, session_id, role, content, created_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO messages (id, session_id, role, content, thinking_process, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (message_id, session_id, "assistant", content, created_at)
+            (message_id, session_id, "assistant", content, thinking_process, created_at)
         )
         # Update session's updated_at
         cursor.execute(

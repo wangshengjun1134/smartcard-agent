@@ -192,11 +192,12 @@ async def handle_rag_lookup(state: AgentState) -> Dict[str, Any]:
             "params": {"query": state["user_input"]},
             "success": True,
             "response": answer,
+            "finished": True,  # RAG lookup 完成后标记为 finished
         }
 
         return {
             "observations": state["observations"] + [observation],
-            "finished": True,  # RAG lookup 完成后标记为 finished
+            "finished": True,
         }
     except Exception as e:
         observation = {
@@ -205,6 +206,7 @@ async def handle_rag_lookup(state: AgentState) -> Dict[str, Any]:
             "success": False,
             "error": str(e),
             "response": f"知识库查询失败: {str(e)}",
+            "finished": True,
         }
         return {
             "observations": state["observations"] + [observation],

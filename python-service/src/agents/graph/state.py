@@ -86,6 +86,8 @@ class AgentState(TypedDict):
 
     # Intent analysis
     execution_intent: str
+    intent_reasoning: str  # LLM 意图分析的解释
+    intent_confidence: float  # 置信度 0.0-1.0
 
     # Goal planning
     current_goal: str
@@ -140,6 +142,8 @@ def create_initial_state(user_input: str, event_queue: asyncio.Queue = None) -> 
     return AgentState(
         user_input=user_input,
         execution_intent="",
+        intent_reasoning="",
+        intent_confidence=0.0,
         current_goal="",
         plan_steps=[],
         current_step_index=0,

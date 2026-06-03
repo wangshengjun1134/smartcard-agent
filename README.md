@@ -77,7 +77,7 @@ uv sync  # 或 pip install -e .
 ```bash
 # 1. 启动 Python 后端服务
 cd python-service
-python -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --reload
+python3 -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --reload
 
 # 2. 启动 Tauri 桌面应用（前端 + Tauri）
 npm run tauri:dev

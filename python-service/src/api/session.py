@@ -62,6 +62,8 @@ def row_to_message(row) -> Message:
         id=row["id"],
         role=row["role"],
         content=row["content"],
+        thinking_process=row.get("thinking_process"),
+        thinking_content=row.get("thinking_content"),
         created_at=row["created_at"],
     )
 
@@ -340,10 +342,10 @@ async def add_message(session_id: str, data: MessageCreate) -> Message:
 
     cursor.execute(
         """
-        INSERT INTO messages (id, session_id, role, content, created_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO messages (id, session_id, role, content, thinking_process, thinking_content, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (message_id, session_id, data.role, data.content, created_at)
+        (message_id, session_id, data.role, data.content, data.thinking_process, data.thinking_content, created_at)
     )
 
     # Update session's updated_at and title (if first user message)
@@ -380,6 +382,8 @@ async def add_message(session_id: str, data: MessageCreate) -> Message:
         id=message_id,
         role=data.role,
         content=data.content,
+        thinking_process=data.thinking_process,
+        thinking_content=data.thinking_content,
         created_at=created_at,
     )
 

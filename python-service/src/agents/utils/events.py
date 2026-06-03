@@ -109,6 +109,16 @@ async def emit_thinking_chunk(state: Dict[str, Any], chunk: str) -> None:
     await write_event(state, ("thinking_chunk", chunk))
 
 
+async def emit_content(state: Dict[str, Any], chunk: str) -> None:
+    """Emit a content chunk for streaming response.
+
+    Args:
+        state: AgentState
+        chunk: Content text chunk
+    """
+    await write_event(state, ("content", chunk))
+
+
 async def emit_routing(
     state: Dict[str, Any],
     from_node: str,
