@@ -58,13 +58,15 @@ def row_to_session(row, messages: List[Message] = None) -> Session:
 
 def row_to_message(row) -> Message:
     """Convert database row to Message model."""
+    # sqlite3.Row doesn't support .get(), convert to dict or use try/except
+    row_dict = dict(row)
     return Message(
-        id=row["id"],
-        role=row["role"],
-        content=row["content"],
-        thinking_process=row.get("thinking_process"),
-        thinking_content=row.get("thinking_content"),
-        created_at=row["created_at"],
+        id=row_dict["id"],
+        role=row_dict["role"],
+        content=row_dict["content"],
+        thinking_process=row_dict.get("thinking_process"),
+        thinking_content=row_dict.get("thinking_content"),
+        created_at=row_dict["created_at"],
     )
 
 
