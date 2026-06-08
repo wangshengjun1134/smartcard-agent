@@ -98,7 +98,7 @@ export function Sidebar({
 
       // 创建控制台窗口，放置在主窗口右侧，高度与主窗口相同
       const webview = new WebviewWindow('apdu-console', {
-        url: '/apdu-console.html',
+        url: '/#apdu-console',
         title: '',
         width: consoleWidth,
         height: innerSize.height,

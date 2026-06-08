@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSessions } from './hooks/useSessions';
 import { AppLayout } from './components/layout/AppLayout';
 import { Sidebar, ViewType } from './components/Sidebar/Sidebar';
@@ -10,8 +10,25 @@ import { SkillsBase } from './components/Pages/SkillsBase';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { getApiUrl, API_CONFIG, DEFAULT_HEADERS } from './config/api';
 import iconImage from './images/icon.png';
+import ApduConsole from './components/console/ApduConsole';
 
 function App() {
+  // 检查是否为 APDU 控制台窗口 - 同步检测避免空白闪烁
+  const params = new URLSearchParams(window.location.search);
+  const isApduConsole = params.get('view') === 'apdu-console' || window.location.hash === '#apdu-console';
+
+  // 调试日志
+  console.log('[App] URL:', window.location.href);
+  console.log('[App] hash:', window.location.hash);
+  console.log('[App] search:', window.location.search);
+  console.log('[App] isApduConsole:', isApduConsole);
+
+  // 如果是 APDU 控制台窗口，直接渲染
+  if (isApduConsole) {
+    console.log('[App] Rendering ApduConsole');
+    return <ApduConsole />;
+  }
+
   const [currentView, setCurrentView] = useState<ViewType>('chat');
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
