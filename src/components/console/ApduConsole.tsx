@@ -29,18 +29,6 @@ function getCurrentTime(): string {
   ].join(':').replace(/(\d{2}:\d{2}:\d{2}):(\d{3})/, '$1.$2');
 }
 
-function generateRandomResponse(sendApdu: string): string {
-  const cleaned = sendApdu.replace(/\s/g, '');
-  const len = Math.min(cleaned.length / 2, 20);
-  const resp = Array.from({ length: len }, () =>
-    Math.floor(Math.random() * 256)
-      .toString(16)
-      .padStart(2, '0')
-      .toUpperCase()
-  ).join(' ');
-  return resp + ' 90 00';
-}
-
 // 图标组件
 const MinimizeIcon = () => (
   <svg viewBox="0 0 10 10" className="w-2.5 h-2.5">
@@ -335,23 +323,40 @@ export default function ApduConsole() {
     []
   );
 
-  const handleSendApdu = useCallback(() => {
+  const handleSendApdu = useCallback(async () => {
     const trimmed = inputValue.trim();
     if (!trimmed) return;
 
     const lines = trimmed.split('\n').filter((line) => line.trim());
-    lines.forEach((line) => {
+    for (const line of lines) {
       const sendApdu = line.trim();
-      const respApdu = generateRandomResponse(sendApdu);
-      const duration = Math.floor(Math.random() * 200) + 15;
-      addEntry(sendApdu, respApdu, duration);
-    });
+      try {
+        const response = await fetch(`${API_BASE}/smartcard/apdu`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reader: selectedReader || '',
+            apdu: sendApdu,
+          }),
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          addEntry(sendApdu, error.detail || '发送失败', 0, true);
+          continue;
+        }
+        const data = await response.json();
+        addEntry(data.apdu, data.response, data.duration);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : '网络错误';
+        addEntry(sendApdu, errorMsg, 0, true);
+      }
+    }
 
     setInputValue('');
     if (textareaRef.current) {
       textareaRef.current.style.height = '32px';
     }
-  }, [inputValue, addEntry]);
+  }, [inputValue, selectedReader, addEntry]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

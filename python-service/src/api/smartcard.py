@@ -209,43 +209,34 @@ async def send_apdu(request: ApduRequest) -> ApduResponse:
         HTTPException: If reader not found or command fails.
     """
     import time
-    
+
     try:
-        # TODO: 使用 pyscard 发送真实 APDU 命令
-        # from smartcard.System import readers
-        # from smartcard.CardConnection import CardConnection
-        # 
-        # available_readers = readers()
-        # if request.reader not in available_readers:
-        #     raise HTTPException(status_code=404, detail=f"Reader '{request.reader}' not found")
-        # 
-        # # 连接读卡器
-        # reader_index = available_readers.index(request.reader)
-        # card_connection = readers()[reader_index].createConnection()
-        # card_connection.connect()
-        # 
-        # # 解析 APDU
-        # apdu_bytes = bytes.fromhex(request.apdu.replace(" ", ""))
-        # 
-        # # 发送命令
-        # start_time = time.time()
-        # response = card_connection.transmit(list(apdu_bytes))
-        # duration = int((time.time() - start_time) * 1000)
-        # 
-        # # 格式化响应
-        # response_hex = " ".join(f"{b:02X}" for b in response[0])
-        
-        # 临时模拟响应
-        time.sleep(0.05)  # 模拟延迟
-        duration = 50
-        
+        # 优先使用已建立的连接
+        if request.reader in _reader_connections:
+            conn = _reader_connections[request.reader]
+        else:
+            # 如果没有连接，查找读卡器并临时连接
+            from smartcard.System import readers
+            available_readers = readers()
+            reader = next((r for r in available_readers if r.name == request.reader), None)
+            if not reader:
+                raise HTTPException(status_code=404, detail=f"Reader '{request.reader}' not found")
+            conn = reader.createConnection()
+            conn.connect()
+
+        # 解析 APDU
         cleaned = request.apdu.replace(" ", "")
-        resp_len = min(len(cleaned) // 2, 20)
-        import random
-        response_hex = " ".join(
-            f"{random.randint(0, 255):02X}" for _ in range(resp_len)
-        ) + " 90 00"
-        
+        apdu_bytes = bytes.fromhex(cleaned)
+
+        # 发送命令
+        start_time = time.time()
+        response, sw1, sw2 = conn.transmit(list(apdu_bytes))
+        duration = int((time.time() - start_time) * 1000)
+
+        # 格式化响应: 数据 + SW1 SW2
+        response_hex = " ".join(f"{b:02X}" for b in response) + f" {sw1:02X} {sw2:02X}"
+
+        logger.info(f"APDU sent to {request.reader}, duration: {duration}ms")
         return ApduResponse(
             reader=request.reader,
             apdu=request.apdu,
@@ -255,4 +246,6 @@ async def send_apdu(request: ApduRequest) -> ApduResponse:
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Failed to send APDU: {e}")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Failed to send APDU: {str(e)}")
