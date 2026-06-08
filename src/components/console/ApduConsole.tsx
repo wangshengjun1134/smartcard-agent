@@ -15,12 +15,8 @@ interface ReaderInfo {
 
 const MAX_ENTRIES = 50;
 
-const initialReaders: ReaderInfo[] = [
-  { name: 'ACR122U-A9', connected: true },
-  { name: 'ACR1255U-B1', connected: false },
-  { name: 'HID OMNIKEY 3021', connected: false },
-  { name: 'Feitian R502', connected: true },
-];
+// API 基础 URL
+const API_BASE = 'http://127.0.0.1:8000/api';
 
 const sampleData = [
   {
@@ -133,6 +129,19 @@ const ChevronDownIcon = () => (
   </svg>
 );
 
+const RefreshIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    className="w-3.5 h-3.5"
+  >
+    <path d="M21 2v6h-6M3 22v-6h6" />
+    <path d="M21 8A9 9 0 005.64 3.64L3 6M3 16a9 9 0 0015.36 4.36L21 18" />
+  </svg>
+);
+
 const CheckCircleIcon = () => (
   <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
     <circle cx="12" cy="12" r="6" />
@@ -182,10 +191,11 @@ const SendIcon = () => (
 );
 
 export default function ApduConsole() {
-  const [readers] = useState<ReaderInfo[]>(initialReaders);
+  const [readers, setReaders] = useState<ReaderInfo[]>([]);
   const [selectedReader, setSelectedReader] = useState<string | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [entries, setEntries] = useState<ApduEntry[]>(sampleData.map((d, i) => ({
     id: i,
     ...d,
@@ -194,6 +204,30 @@ export default function ApduConsole() {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const entryIdRef = useRef(sampleData.length);
+
+  // 获取读卡器列表
+  const fetchReaders = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const response = await fetch(`${API_BASE}/smartcard/readers`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch readers');
+      }
+      const data = await response.json();
+      setReaders(data.readers);
+    } catch (error) {
+      console.error('Failed to fetch readers:', error);
+      // 失败时使用空列表
+      setReaders([]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  // 组件加载时获取读卡器列表
+  useEffect(() => {
+    fetchReaders();
+  }, [fetchReaders]);
 
   // 窗口控制
   const handleMinimize = useCallback(async () => {
@@ -392,6 +426,20 @@ export default function ApduConsole() {
             </div>
           )}
         </div>
+
+        {/* 刷新按钮 */}
+        <button
+          className={`flex items-center gap-1.5 px-2.5 py-1 bg-transparent border-none rounded-md cursor-pointer text-sm transition-[background] duration-150 hover:bg-[#e5e5e5] text-[#333] ${
+            isRefreshing ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+          onClick={fetchReaders}
+          disabled={isRefreshing}
+        >
+          <span className={isRefreshing ? 'animate-spin' : ''}>
+            <RefreshIcon />
+          </span>
+          <span>{isRefreshing ? '刷新中...' : '刷新'}</span>
+        </button>
 
         {/* 连接/断开按钮 */}
         <button
