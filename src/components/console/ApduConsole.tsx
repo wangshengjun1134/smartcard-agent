@@ -6,6 +6,7 @@ interface ApduEntry {
   resp: string;
   duration: number;
   timestamp: string;
+  isError?: boolean;
 }
 
 interface ReaderInfo {
@@ -17,38 +18,6 @@ const MAX_ENTRIES = 50;
 
 // API 基础 URL
 const API_BASE = 'http://127.0.0.1:8000/api';
-
-const sampleData = [
-  {
-    send: '00 A4 04 00 0E 32 50 41 59 2E 53 59 53 2E 44 44 46 30 31',
-    resp: '6F 2C 84 0E 32 50 41 59 2E 53 59 53 2E 44 44 46 30 31 A5 1A 88 01 01 5F 2D 04 7A 68 2D 43 4E 9F 11 01 01 90 00',
-    duration: 127,
-  },
-  {
-    send: '00 B0 00 00 10',
-    resp: '00 11 22 33 44 55 66 77 88 99 AA BB CC DD EE FF 90 00',
-    duration: 45,
-  },
-  {
-    send: '00 CA 9F 17 00',
-    resp: '9F 17 01 02 90 00',
-    duration: 32,
-  },
-  {
-    send: '80 50 00 00 08 11 22 33 44 55 66 77 88',
-    resp: '90 00',
-    duration: 18,
-  },
-  {
-    send: Array.from({ length: 256 }, (_, i) =>
-      i.toString(16).padStart(2, '0').toUpperCase()
-    ).join(' '),
-    resp: Array.from({ length: 256 }, (_, i) =>
-      i.toString(16).padStart(2, '0').toUpperCase()
-    ).join(' ') + ' 90 00',
-    duration: 256,
-  },
-];
 
 function getCurrentTime(): string {
   const d = new Date();
@@ -196,14 +165,11 @@ export default function ApduConsole() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [entries, setEntries] = useState<ApduEntry[]>(sampleData.map((d, i) => ({
-    id: i,
-    ...d,
-    timestamp: '',
-  })));
+  const [entries, setEntries] = useState<ApduEntry[]>([]);
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const entryIdRef = useRef(sampleData.length);
+  const consoleRef = useRef<HTMLDivElement>(null);
+  const entryIdRef = useRef(0);
 
   // 获取读卡器列表
   const fetchReaders = useCallback(async () => {
@@ -228,6 +194,13 @@ export default function ApduConsole() {
   useEffect(() => {
     fetchReaders();
   }, [fetchReaders]);
+
+  // 新条目添加时自动滚动到底部
+  useEffect(() => {
+    if (consoleRef.current) {
+      consoleRef.current.scrollTop = consoleRef.current.scrollHeight;
+    }
+  }, [entries]);
 
   // 窗口控制
   const handleMinimize = useCallback(async () => {
@@ -279,13 +252,75 @@ export default function ApduConsole() {
   }, []);
 
   // 连接/断开
-  const handleToggleConnect = useCallback(() => {
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  const addEntry = useCallback(
+    (sendApdu: string, respApdu: string, duration: number, isError = false) => {
+      const newEntry: ApduEntry = {
+        id: entryIdRef.current++,
+        send: sendApdu,
+        resp: respApdu,
+        duration,
+        timestamp: getCurrentTime(),
+        isError,
+      };
+      setEntries((prev) => {
+        const updated = [...prev, newEntry];
+        return updated.slice(-MAX_ENTRIES);
+      });
+    },
+    []
+  );
+
+  const handleToggleConnect = useCallback(async () => {
     if (!selectedReader) {
-      alert('请先选择读卡器');
+      addEntry('提示', '请先选择读卡器', 0, true);
       return;
     }
-    setIsConnected((prev) => !prev);
-  }, [selectedReader]);
+
+    setIsConnecting(true);
+    try {
+      if (!isConnected) {
+        // 连接读卡器
+        const response = await fetch(`${API_BASE}/smartcard/connect`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reader: selectedReader }),
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          addEntry(`连接失败 (${selectedReader})`, error.detail || '连接失败', 0, true);
+          return;
+        }
+        const data = await response.json();
+        console.log('[Connect] Response data:', data);
+        setIsConnected(true);
+        // 连接成功，将 ATR 以 APDU 形式显示在控制台
+        if (data.atr) {
+          addEntry(`ATR (${selectedReader})`, data.atr, 0);
+        }
+      } else {
+        // 断开读卡器
+        const response = await fetch(`${API_BASE}/smartcard/disconnect`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reader: selectedReader }),
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          addEntry(`断开失败 (${selectedReader})`, error.detail || '断开失败', 0, true);
+          return;
+        }
+        setIsConnected(false);
+      }
+    } catch (error) {
+      console.error('Connect/disconnect error:', error);
+      const errorMsg = error instanceof Error ? error.message : '操作失败';
+      addEntry('错误', errorMsg, 0, true);
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [selectedReader, isConnected]);
 
   // 输入处理
   const handleInputChange = useCallback(
@@ -296,23 +331,6 @@ export default function ApduConsole() {
         textareaRef.current.style.height =
           Math.min(textareaRef.current.scrollHeight, 120) + 'px';
       }
-    },
-    []
-  );
-
-  const addEntry = useCallback(
-    (sendApdu: string, respApdu: string, duration: number) => {
-      const newEntry: ApduEntry = {
-        id: entryIdRef.current++,
-        send: sendApdu,
-        resp: respApdu,
-        duration,
-        timestamp: getCurrentTime(),
-      };
-      setEntries((prev) => {
-        const updated = [newEntry, ...prev];
-        return updated.slice(0, MAX_ENTRIES);
-      });
     },
     []
   );
@@ -445,16 +463,17 @@ export default function ApduConsole() {
         <button
           className={`flex items-center gap-1.5 px-2.5 py-1 bg-transparent border-none rounded-md cursor-pointer text-sm transition-[background] duration-150 hover:bg-[#e5e5e5] ${
             isConnected ? 'text-[#4b6ef3]' : 'text-[#333]'
-          }`}
+          } ${isConnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
           onClick={handleToggleConnect}
+          disabled={isConnecting}
         >
           {isConnected ? <ConnectedIcon /> : <ConnectIcon />}
-          <span>{isConnected ? '断开' : '连接'}</span>
+          <span>{isConnecting ? (isConnected ? '断开中...' : '连接中...') : (isConnected ? '断开' : '连接')}</span>
         </button>
       </div>
 
       {/* 控制台内容 */}
-      <div className="flex-1 p-4 overflow-y-auto bg-[#fafafa]">
+      <div ref={consoleRef} className="flex-1 p-4 overflow-y-auto bg-[#fafafa]">
         {entries.length === 0 ? (
           <div className="text-center text-[#999] py-10 text-sm font-mono italic">
             等待 APDU 指令...
@@ -463,27 +482,29 @@ export default function ApduConsole() {
           entries.map((entry) => (
             <div
               key={entry.id}
-              className="bg-white mb-2 p-2 px-3 rounded text-[13px] leading-relaxed font-mono"
+              className={`bg-white mb-2 p-2 px-3 rounded text-[13px] leading-relaxed font-mono ${
+                entry.isError ? 'border-l-4 border-red-500 text-red-600' : ''
+              }`}
             >
               <div className="flex justify-between items-start">
                 <div className="flex items-start flex-1">
-                  <span className="font-bold w-4 mr-2 flex-shrink-0 text-[#fa8c16]">
+                  <span className={`font-bold w-4 mr-2 flex-shrink-0 ${entry.isError ? 'text-red-600' : 'text-[#fa8c16]'}`}>
                     &gt;
                   </span>
                   <span className="break-all flex-1">{entry.send}</span>
                 </div>
-                <span className="text-[#999] text-[11px] w-[100px] text-right ml-3 flex-shrink-0">
+                <span className={`text-[11px] w-[100px] text-right ml-3 flex-shrink-0 ${entry.isError ? 'text-red-400' : 'text-[#999]'}`}>
                   {entry.timestamp}
                 </span>
               </div>
               <div className="flex justify-between items-start mt-1">
                 <div className="flex items-start flex-1">
-                  <span className="font-bold w-4 mr-2 flex-shrink-0 text-[#4b6ef3]">
+                  <span className={`font-bold w-4 mr-2 flex-shrink-0 ${entry.isError ? 'text-red-600' : 'text-[#4b6ef3]'}`}>
                     &lt;
                   </span>
                   <span className="break-all flex-1">{entry.resp}</span>
                 </div>
-                <span className="text-[#722ed1] text-xs w-[100px] text-right ml-3 flex-shrink-0">
+                <span className={`text-xs w-[100px] text-right ml-3 flex-shrink-0 ${entry.isError ? 'text-red-400' : 'text-[#722ed1]'}`}>
                   {entry.duration} ms
                 </span>
               </div>

@@ -41,6 +41,22 @@ class ApduResponse(BaseModel):
     duration: int  # milliseconds
 
 
+class ConnectRequest(BaseModel):
+    """Connect/disconnect request."""
+    reader: str
+
+
+class ConnectResponse(BaseModel):
+    """Connect response."""
+    reader: str
+    connected: bool
+    atr: str = ""  # ATR in hex format
+
+
+# 存储读卡器连接会话
+_reader_connections: dict = {}
+
+
 # ========== Endpoints ==========
 
 @router.get("/readers", response_model=ReadersResponse)
@@ -88,6 +104,95 @@ async def list_readers() -> ReadersResponse:
         logger.error(f"Exception: {e}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Failed to list readers: {str(e)}")
+
+
+@router.post("/connect", response_model=ConnectResponse)
+async def connect_reader(request: ConnectRequest) -> ConnectResponse:
+    """Connect to a smartcard reader.
+
+    Args:
+        request: Reader name to connect to.
+
+    Returns:
+        ConnectResponse with connection status.
+
+    Raises:
+        HTTPException: If reader not found or connection fails.
+    """
+    try:
+        from smartcard.System import readers
+        from smartcard.Exceptions import CardConnectionException
+
+        available_readers = readers()
+        reader = next((r for r in available_readers if r.name == request.reader), None)
+        if not reader:
+            raise HTTPException(status_code=404, detail=f"Reader '{request.reader}' not found")
+
+        # 检查是否已连接
+        if request.reader in _reader_connections:
+            return ConnectResponse(reader=request.reader, connected=True)
+
+        # 创建连接
+        conn = reader.createConnection()
+        conn.connect()
+        _reader_connections[request.reader] = conn
+
+        # 获取 ATR - 有些读卡器需要短暂延迟才能返回 ATR
+        import time
+        time.sleep(0.2)
+        atr_bytes = conn.getATR()
+        logger.info(f"ATR bytes: {atr_bytes}")
+
+        # 如果第一次没拿到，重试一次
+        if not atr_bytes:
+            time.sleep(0.3)
+            atr_bytes = conn.getATR()
+            logger.info(f"ATR bytes (retry): {atr_bytes}")
+
+        atr_hex = " ".join(f"{b:02X}" for b in atr_bytes) if atr_bytes else "N/A"
+
+        logger.info(f"Connected to reader: {request.reader}, ATR: {atr_hex}")
+        return ConnectResponse(reader=request.reader, connected=True, atr=atr_hex)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to connect reader: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Failed to connect: {str(e)}")
+
+
+@router.post("/disconnect", response_model=ConnectResponse)
+async def disconnect_reader(request: ConnectRequest) -> ConnectResponse:
+    """Disconnect from a smartcard reader.
+
+    Args:
+        request: Reader name to disconnect.
+
+    Returns:
+        ConnectResponse with connection status.
+
+    Raises:
+        HTTPException: If reader not found or not connected.
+    """
+    try:
+        if request.reader not in _reader_connections:
+            return ConnectResponse(reader=request.reader, connected=False)
+
+        # 断开连接
+        conn = _reader_connections.pop(request.reader)
+        try:
+            conn.disconnect()
+        except Exception:
+            pass  # 忽略断开时的异常
+
+        logger.info(f"Disconnected from reader: {request.reader}")
+        return ConnectResponse(reader=request.reader, connected=False)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to disconnect reader: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Failed to disconnect: {str(e)}")
 
 
 @router.post("/apdu", response_model=ApduResponse)
