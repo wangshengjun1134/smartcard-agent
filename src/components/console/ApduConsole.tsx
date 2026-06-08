@@ -329,26 +329,29 @@ export default function ApduConsole() {
 
     const lines = trimmed.split('\n').filter((line) => line.trim());
     for (const line of lines) {
-      const sendApdu = line.trim();
+      // 清理输入并格式化为空格分隔
+      const cleaned = line.trim().replace(/\s/g, '');
+      const formattedApdu = cleaned.match(/.{1,2}/g)?.join(' ') || cleaned;
+
       try {
         const response = await fetch(`${API_BASE}/smartcard/apdu`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             reader: selectedReader || '',
-            apdu: sendApdu,
+            apdu: formattedApdu,
           }),
         });
         if (!response.ok) {
           const error = await response.json();
-          addEntry(sendApdu, error.detail || '发送失败', 0, true);
+          addEntry(formattedApdu, error.detail || '发送失败', 0, true);
           continue;
         }
         const data = await response.json();
         addEntry(data.apdu, data.response, data.duration);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : '网络错误';
-        addEntry(sendApdu, errorMsg, 0, true);
+        addEntry(formattedApdu, errorMsg, 0, true);
       }
     }
 
@@ -360,7 +363,7 @@ export default function ApduConsole() {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSendApdu();
       }
@@ -524,7 +527,7 @@ export default function ApduConsole() {
           <textarea
             ref={textareaRef}
             className="w-full text-[13px] font-mono bg-transparent border-none outline-none resize-none min-h-[32px] max-h-[120px] text-[#1a1a1a] placeholder:text-[#999]"
-            placeholder="输入 APDU 指令 (Ctrl+Enter 发送)"
+            placeholder="输入 APDU 指令 (Enter 发送, Shift+Enter 换行)"
             rows={1}
             value={inputValue}
             onChange={handleInputChange}

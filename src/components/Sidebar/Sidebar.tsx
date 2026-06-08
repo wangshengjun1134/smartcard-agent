@@ -79,8 +79,9 @@ export function Sidebar({
       const monitorX = monitor?.position.x || 0;
       const monitorY = monitor?.position.y || 0;
 
-      // 控制台窗口宽度
-      const consoleWidth = 600;
+      // 控制台窗口大小与主窗口相同
+      const consoleWidth = outerSize.width;
+      const consoleHeight = innerSize.height;
 
       // 计算总宽度（主窗口 + 控制台）
       const totalWidth = outerSize.width + consoleWidth;
@@ -91,17 +92,17 @@ export function Sidebar({
 
       // 计算上下居中位置
       const centerY = monitorY + screenHeight / 2;
-      const mainY = Math.round(centerY - innerSize.height / 2);
+      const mainY = Math.round(centerY - consoleHeight / 2);
 
       // 移动主窗口到左侧
       await mainWindow.setPosition(new PhysicalPosition(newMainX, mainY));
 
-      // 创建控制台窗口，放置在主窗口右侧，高度与主窗口相同
+      // 创建控制台窗口，放置在主窗口右侧，大小与主窗口相同
       const webview = new WebviewWindow('apdu-console', {
         url: '/#apdu-console',
         title: '',
         width: consoleWidth,
-        height: innerSize.height,
+        height: consoleHeight,
         x: newMainX + outerSize.width,
         y: mainY,
         resizable: true,
