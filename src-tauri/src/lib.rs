@@ -26,13 +26,19 @@ pub fn run() {
             {
                 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, Code, Modifiers};
 
-                let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyI);
-                app.global_shortcut().on_shortcut(shortcut, |app, _shortcut, _event| {
-                    // 优先尝试 apdu-console 窗口,否则用 main 窗口
-                    let window = app.get_webview_window("apdu-console")
-                        .or_else(|| app.get_webview_window("main"));
-                    if let Some(w) = window {
-                        let _ = w.open_devtools();
+                // Ctrl+Shift+I: 打开主窗口 DevTools
+                let shortcut_main = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyI);
+                app.global_shortcut().on_shortcut(shortcut_main, |app, _shortcut, _event| {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.open_devtools();
+                    }
+                })?;
+
+                // Ctrl+Shift+U: 打开 APDU 控制台 DevTools
+                let shortcut_apdu = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyU);
+                app.global_shortcut().on_shortcut(shortcut_apdu, |app, _shortcut, _event| {
+                    if let Some(window) = app.get_webview_window("apdu-console") {
+                        let _ = window.open_devtools();
                     }
                 })?;
             }

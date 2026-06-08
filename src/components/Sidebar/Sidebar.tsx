@@ -79,16 +79,16 @@ export function Sidebar({
       const monitorX = monitor?.position.x || 0;
       const monitorY = monitor?.position.y || 0;
 
-      // 控制台窗口大小与主窗口相同
+      // 控制台窗口大小与主窗口相同（使用 outerSize 保持外部尺寸一致）
       const consoleWidth = outerSize.width;
-      const consoleHeight = innerSize.height;
+      const consoleHeight = outerSize.height;
 
       // 计算总宽度（主窗口 + 控制台）
       const totalWidth = outerSize.width + consoleWidth;
 
-      // 计算整体居中位置（左右居中）
+      // 计算整体居中位置（左右居中），但主窗口不能超出屏幕左侧
       const centerX = monitorX + screenWidth / 2;
-      const newMainX = Math.round(centerX - totalWidth / 2);
+      const newMainX = Math.max(monitorX, Math.round(centerX - totalWidth / 2));
 
       // 计算上下居中位置
       const centerY = monitorY + screenHeight / 2;

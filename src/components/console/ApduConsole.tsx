@@ -375,13 +375,13 @@ export default function ApduConsole() {
   const currentReaderInfo = readers.find((r) => r.name === selectedReader);
 
   return (
-    <div className="flex flex-col h-screen bg-[#fafafa] text-[#1a1a1a] font-sans">
-      {/* 标题栏 */}
+    <div className="flex flex-col h-screen bg-[#fafafa] text-[#1a1a1a] font-sans p-4">
+      {/* 标题栏 - 在容器外部 */}
       <div
-        className="bg-[#f7f7f9] h-8 flex items-center justify-between flex-shrink-0"
+        className="bg-[#fafafa] h-8 flex items-center justify-between flex-shrink-0 rounded-xl px-3 -mt-1"
         data-tauri-drag-region
       >
-        <div className="flex-1 flex items-center pl-3 gap-2" data-tauri-drag-region />
+        <div className="flex-1 flex items-center gap-2" data-tauri-drag-region />
         <div className="flex items-center" data-tauri-drag-region>
           <button
             className="w-11.5 h-8 flex items-center justify-center cursor-pointer bg-transparent border-none transition-[background] duration-150 hover:bg-[#e5e5e5]"
@@ -404,8 +404,9 @@ export default function ApduConsole() {
         </div>
       </div>
 
+      <div className="flex-1 flex flex-col rounded-xl overflow-hidden bg-white shadow-sm">
       {/* 头部 */}
-      <div className="bg-white px-4 h-[45px] flex items-center justify-end gap-3 border-b border-[#ececee] flex-shrink-0">
+      <div className="bg-white px-4 h-[45px] flex items-center justify-end gap-3 flex-shrink-0">
         {/* 读卡器选择 */}
         <div className="relative flex items-center">
           <button
@@ -481,7 +482,7 @@ export default function ApduConsole() {
       </div>
 
       {/* 控制台内容 */}
-      <div ref={consoleRef} className="flex-1 p-4 overflow-y-auto bg-[#fafafa]">
+      <div ref={consoleRef} className="flex-1 p-4 overflow-y-auto bg-white">
         {entries.length === 0 ? (
           <div className="text-center text-[#999] py-10 text-sm font-mono italic">
             等待 APDU 指令...
@@ -522,7 +523,7 @@ export default function ApduConsole() {
       </div>
 
       {/* 输入区域 */}
-      <div className="bg-white border-t border-[#ececee] p-3 flex-shrink-0">
+      <div className="bg-white p-3 flex-shrink-0">
         <div className="bg-[#fafafa] rounded-2xl p-3 pb-2">
           <textarea
             ref={textareaRef}
@@ -547,6 +548,7 @@ export default function ApduConsole() {
             </button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
