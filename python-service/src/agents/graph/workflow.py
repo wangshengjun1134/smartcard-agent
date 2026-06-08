@@ -1,312 +1,129 @@
-"""LangGraph Workflow for the Runtime Agent - UPDATED.
+"""Simplified Workflow using AgentCore reasoning loop.
 
-This module defines the StateGraph workflow that orchestrates
-the agent nodes according to the specified flowchart:
+This module replaces the LangGraph-based workflow with a qwen-code style
+reasoning loop: send messages → stream response → collect tool calls → execute tools → repeat.
 
-Flow:
-    Start → Intent
-    Intent →|NORMAL_CHAT| DirectAnswer → Finalize
-    Intent →|RAG_DOMINANT| RagQuery → AnswerFromRag → Finalize
-    Intent →|TOOL_REASONING| Planner
-
-    [ComplexTask subgraph]
-    Planner → InputPrepare → Think → SkillSelect → SkillExec → Observe
-    Observe → StateRouter
-    StateRouter →|SUCCESS_COMPLETE| Finalize
-    StateRouter →|SUCCESS_CONTINUE| UpdateState → InputPrepare
-    StateRouter →|NEEDS_KNOWLEDGE| ProactiveRAG → InjectKnowledge → InputPrepare
-    StateRouter →|RETRYABLE (not exceeded)| Retry → UpdateRetryCount → InputPrepare
-    StateRouter →|RETRYABLE_EXCEEDED| Finalize
-    StateRouter →|NEEDS_USER_INPUT| UserConfirm → WaitUserResponse → InputPrepare
-    StateRouter →|FATAL_ERROR| Finalize
-    StateRouter →|NEEDS_REPLAN| RePlan → Planner
-
-    Finalize → End
+The workflow is simpler but more flexible — the model decides what tools to call
+and in what order, rather than following a predefined graph.
 """
 
-from typing import Literal, Any, Dict
-import json
 import asyncio
-from langgraph.graph import StateGraph, END
+import json
+import logging
+import time
+import uuid
+from typing import Dict, Any, Optional, AsyncGenerator
 
-from agents.graph.state import AgentState, create_initial_state
-from agents.graph.state import (
-    INTENT_NORMAL_CHAT,
-    INTENT_RAG_DOMINANT,
-    INTENT_TOOL_REASONING,
-    EXEC_STATUS_SUCCESS_COMPLETE,
-    EXEC_STATUS_SUCCESS_CONTINUE,
-    EXEC_STATUS_NEEDS_KNOWLEDGE,
-    EXEC_STATUS_RETRYABLE,
-    EXEC_STATUS_RETRYABLE_EXCEEDED,
-    EXEC_STATUS_NEEDS_USER_INPUT,
-    EXEC_STATUS_FATAL_ERROR,
-    EXEC_STATUS_NEEDS_REPLAN,
-)
+from agents.core.agent_core import AgentCore, AgentCoreConfig, ReasoningLoopResult
+from agents.core.message import build_user_message, build_system_message
+from agents.core.tool_scheduler import ToolScheduler
+from agents.tools.builtin import register_builtin_tools
+from agents.core.events import emit_thinking, emit_content
 
-# Import all nodes
-from agents.nodes.intent.intent_node import intent_node
-from agents.nodes.runtime.direct_answer_node import direct_answer_node
-from agents.nodes.runtime.rag_query_node import rag_query_node
-from agents.nodes.runtime.answer_from_rag_node import answer_from_rag_node
-from agents.nodes.planner.goal_planner_node import goal_planner_node
-from agents.nodes.runtime.input_prepare_node import input_prepare_node
-from agents.nodes.runtime.think_node import think_node
-from agents.nodes.skill.skill_selector_node import skill_selector_node
-from agents.nodes.skill.skill_runtime_node import skill_runtime_node
-from agents.nodes.runtime.observe_node import observe_node
-from agents.nodes.runtime.state_router_node import state_router_node, get_routing_decision
-from agents.nodes.runtime.update_state_node import update_state_node
-from agents.nodes.runtime.retry_node import retry_node
-from agents.nodes.runtime.update_retry_count_node import update_retry_count_node
-from agents.nodes.runtime.proactive_rag_node import proactive_rag_node
-from agents.nodes.runtime.inject_knowledge_node import inject_knowledge_node
-from agents.nodes.runtime.user_confirm_node import user_confirm_node
-from agents.nodes.runtime.wait_user_response_node import wait_user_response_node
-from agents.nodes.planner.replan_node import replan_node
-from agents.nodes.runtime.finalize_node import finalize_node
+logger = logging.getLogger(__name__)
+
+# System prompt for the smartcard agent
+SYSTEM_PROMPT = """你是智能卡操作助手，可以帮助用户完成以下任务：
+
+1. 读取卡片信息（IMSI、ICCID、号码等）
+2. 执行APDU命令
+3. 探测卡片能力和应用
+4. 回答智能卡相关技术问题
+
+请使用提供的工具来完成用户的请求。如果需要执行卡片操作，请调用相应的 skill 工具。
+操作完成后，使用 finalize 工具向用户提供最终结果。
+
+注意事项：
+- 在执行危险操作前，请提醒用户确认
+- 如果操作失败，请尝试分析错误原因并提供建议
+- 保持回答简洁明了"""
 
 
-def create_workflow() -> StateGraph:
-    """Create the LangGraph workflow.
+def create_agent_core(event_queue: asyncio.Queue) -> AgentCore:
+    """Create an AgentCore instance with registered tools.
+
+    Args:
+        event_queue: asyncio.Queue for real-time event streaming
 
     Returns:
-        StateGraph instance.
+        Configured AgentCore instance.
     """
-    workflow = StateGraph(AgentState)
-
-    # ========================================
-    # Add all nodes
-    # ========================================
-
-    # Entry node
-    workflow.add_node("intent", intent_node)
-
-    # Intent branch nodes
-    workflow.add_node("direct_answer", direct_answer_node)
-    workflow.add_node("rag_query", rag_query_node)
-    workflow.add_node("answer_from_rag", answer_from_rag_node)
-
-    # Complex task nodes
-    workflow.add_node("planner", goal_planner_node)
-    workflow.add_node("input_prepare", input_prepare_node)
-    workflow.add_node("think", think_node)
-    workflow.add_node("skill_selector", skill_selector_node)
-    workflow.add_node("skill_runtime", skill_runtime_node)
-    workflow.add_node("observe", observe_node)
-    workflow.add_node("state_router", state_router_node)
-
-    # State router branch nodes
-    workflow.add_node("update_state", update_state_node)
-    workflow.add_node("retry", retry_node)
-    workflow.add_node("update_retry_count", update_retry_count_node)
-    workflow.add_node("proactive_rag", proactive_rag_node)
-    workflow.add_node("inject_knowledge", inject_knowledge_node)
-    workflow.add_node("user_confirm", user_confirm_node)
-    workflow.add_node("wait_user_response", wait_user_response_node)
-    workflow.add_node("replan", replan_node)
-
-    # Exit node
-    workflow.add_node("finalize", finalize_node)
-
-    # ========================================
-    # Set entry point
-    # ========================================
-    workflow.set_entry_point("intent")
-
-    # ========================================
-    # Intent routing (3 branches)
-    # ========================================
-    def route_after_intent(state: AgentState) -> Literal["direct_answer", "rag_query", "planner"]:
-        """Route based on execution_intent.
-
-        Routes:
-        - NORMAL_CHAT → direct_answer
-        - RAG_DOMINANT → rag_query
-        - TOOL_REASONING → planner
-        """
-        intent = state["execution_intent"]
-        print(f"[DEBUG] route_after_intent: intent={intent}")
-
-        if intent == INTENT_NORMAL_CHAT:
-            print(f"[DEBUG] Routing to direct_answer")
-            return "direct_answer"
-        elif intent == INTENT_RAG_DOMINANT:
-            print(f"[DEBUG] Routing to rag_query")
-            return "rag_query"
-        else:  # TOOL_REASONING
-            print(f"[DEBUG] Routing to planner")
-            return "planner"
-
-    workflow.add_conditional_edges(
-        "intent",
-        route_after_intent,
-        {
-            "direct_answer": "direct_answer",
-            "rag_query": "rag_query",
-            "planner": "planner",
-        }
+    config = AgentCoreConfig(
+        max_turns=15,
+        max_time_minutes=10.0,
+        model_temperature=0.7,
+        system_prompt=SYSTEM_PROMPT,
+        event_queue=event_queue,
     )
 
-    # Direct answer branch
-    workflow.add_edge("direct_answer", "finalize")
+    agent = AgentCore(config)
 
-    # RAG branch
-    workflow.add_edge("rag_query", "answer_from_rag")
-    workflow.add_edge("answer_from_rag", "finalize")
+    # Register built-in tools (including skill wrappers)
+    register_builtin_tools(agent.scheduler)
 
-    # ========================================
-    # Complex task flow
-    # ========================================
-    # Planner → InputPrepare → Think → SkillSelect → SkillExec → Observe
-    workflow.add_edge("planner", "input_prepare")
-    workflow.add_edge("input_prepare", "think")
-    workflow.add_edge("think", "skill_selector")
-    workflow.add_edge("skill_selector", "skill_runtime")
-    workflow.add_edge("skill_runtime", "observe")
-
-    # Observe → StateRouter (pass-through node for routing)
-    workflow.add_edge("observe", "state_router")
-
-    # ========================================
-    # State router routing (8 branches)
-    # ========================================
-    def route_after_state_router(state: AgentState) -> Literal[
-        "finalize",
-        "update_state",
-        "proactive_rag",
-        "retry",
-        "user_confirm",
-        "replan",
-    ]:
-        """Route based on execution_status.
-
-        Routes:
-        - SUCCESS_COMPLETE → finalize
-        - SUCCESS_CONTINUE → update_state
-        - NEEDS_KNOWLEDGE → proactive_rag
-        - RETRYABLE → retry (if not exceeded)
-        - RETRYABLE_EXCEEDED → finalize
-        - NEEDS_USER_INPUT → user_confirm
-        - FATAL_ERROR → finalize
-        - NEEDS_REPLAN → replan
-        """
-        return get_routing_decision(state)
-
-    workflow.add_conditional_edges(
-        "state_router",
-        route_after_state_router,
-        {
-            "finalize": "finalize",
-            "update_state": "update_state",
-            "proactive_rag": "proactive_rag",
-            "retry": "retry",
-            "user_confirm": "user_confirm",
-            "replan": "replan",
-        }
-    )
-
-    # ========================================
-    # State router branch paths
-    # ========================================
-
-    # SUCCESS_CONTINUE: UpdateState → InputPrepare (loop back)
-    workflow.add_edge("update_state", "input_prepare")
-
-    # NEEDS_KNOWLEDGE: ProactiveRAG → InjectKnowledge → InputPrepare
-    workflow.add_edge("proactive_rag", "inject_knowledge")
-    workflow.add_edge("inject_knowledge", "input_prepare")
-
-    # RETRYABLE: Retry → UpdateRetryCount → InputPrepare
-    workflow.add_edge("retry", "update_retry_count")
-    workflow.add_edge("update_retry_count", "input_prepare")
-
-    # NEEDS_USER_INPUT: UserConfirm → WaitUserResponse → InputPrepare
-    workflow.add_edge("user_confirm", "wait_user_response")
-    workflow.add_edge("wait_user_response", "input_prepare")
-
-    # NEEDS_REPLAN: RePlan → Planner (loop back to start of complex task)
-    workflow.add_edge("replan", "planner")
-
-    # ========================================
-    # Finalize → END
-    # ========================================
-    workflow.add_edge("finalize", END)
-
-    return workflow
+    return agent
 
 
-def compile_workflow() -> Any:
-    """Compile the workflow into an executable graph.
-
-    Returns:
-        Compiled LangGraph.
-    """
-    workflow = create_workflow()
-    return workflow.compile()
-
-
-# Global compiled graph (cleared on module reload)
-_graph = None
-
-
-def get_graph() -> Any:
-    """Get the compiled workflow graph.
-
-    Returns:
-        Compiled LangGraph instance.
-    """
-    global _graph
-    # Always recompile to pick up latest changes (for development)
-    _graph = compile_workflow()
-    return _graph
-
-
-def run_agent(user_input: str) -> Dict[str, Any]:
-    """Run the agent with user input.
+async def run_agent_core(
+    user_input: str,
+    event_queue: asyncio.Queue,
+    session_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Run the agent with the reasoning loop.
 
     Args:
         user_input: User request text
+        event_queue: asyncio.Queue for real-time event streaming
+        session_id: Optional session ID for saving response
 
     Returns:
-        Final agent state with response.
+        Final result dictionary.
     """
-    graph = get_graph()
-    initial_state = create_initial_state(user_input)
+    logger.info(f"[AgentCore] Starting with input: {user_input}")
 
-    result = graph.invoke(initial_state)
+    # Create agent with tools
+    agent = create_agent_core(event_queue)
 
-    return result
+    # Build initial messages
+    messages = [
+        build_system_message(SYSTEM_PROMPT),
+        build_user_message(user_input),
+    ]
+
+    # Get tool declarations
+    tools = agent.scheduler.get_tool_declarations()
+
+    # Run reasoning loop
+    result = await agent.run_reasoning_loop(
+        initial_messages=messages,
+        tools=tools,
+    )
+
+    logger.info(f"[AgentCore] Completed: turns={result.turns_used}, mode={result.terminate_mode}")
+
+    # Build final response
+    final_response = result.text if result.text else "处理完成"
+
+    return {
+        "final_response": final_response,
+        "execution_intent": "TOOL_REASONING",  # Always tool reasoning in this mode
+        "current_goal": "",
+        "observations": [],
+        "finished": result.terminate_mode is None,  # None = normal completion
+        "error": None,
+        "turns_used": result.turns_used,
+        "terminate_mode": result.terminate_mode,
+    }
 
 
-async def run_agent_async(user_input: str) -> Dict[str, Any]:
-    """Run the agent asynchronously.
-
-    Args:
-        user_input: User request text
-
-    Returns:
-        Final agent state.
-    """
-    print(f"[DEBUG] run_agent_async called with input: {user_input}")
-
-    graph = get_graph()
-    initial_state = create_initial_state(user_input)
-
-    print(f"[DEBUG] Initial state created, invoking graph...")
-
-    result = await graph.ainvoke(initial_state)
-
-    print(f"[DEBUG] Graph execution completed")
-
-    return result
-
-
-async def stream_agent(user_input: str, session_id: str = None):
+async def stream_agent_core(
+    user_input: str,
+    session_id: Optional[str] = None,
+) -> AsyncGenerator[str, None]:
     """Stream agent execution with SSE format.
 
-    Uses asyncio.Queue to receive real-time events from nodes,
-    providing live thinking/routing updates to the frontend.
+    Uses asyncio.Queue to receive real-time events from the reasoning loop,
+    providing live thinking/tool/routing updates to the frontend.
 
     Args:
         user_input: User request text
@@ -315,31 +132,24 @@ async def stream_agent(user_input: str, session_id: str = None):
     Yields:
         SSE formatted strings with real-time events.
     """
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"[DEBUG] stream_agent called with input: {user_input}, session_id: {session_id}")
+    logger.info(f"[AgentCore] stream_agent_core called with input: {user_input}")
 
     # Create event queue for real-time streaming
     event_queue = asyncio.Queue()
 
-    # Create initial state with event_queue
-    initial_state = create_initial_state(user_input, event_queue)
-
     accumulated_response = ""
-    thinking_steps = []  # 收集思考过程
-    routing_decision = None  # 收集路由决策
+    thinking_steps = []
     graph_done = False
     final_result = None
 
-    # Start graph execution in background
-    async def run_graph():
-        """Run the graph and signal completion."""
+    # Start agent execution in background
+    async def run_agent():
+        """Run the agent and signal completion."""
         nonlocal graph_done, final_result
-        graph = get_graph()
         try:
-            final_result = await graph.ainvoke(initial_state)
+            final_result = await run_agent_core(user_input, event_queue, session_id)
         except Exception as e:
-            logger.error(f"Graph execution error: {e}")
+            logger.error(f"Agent execution error: {e}", exc_info=True)
             await event_queue.put({
                 "type": "error",
                 "error": str(e),
@@ -349,11 +159,11 @@ async def stream_agent(user_input: str, session_id: str = None):
             # Signal end of stream
             await event_queue.put({"type": "stream_end"})
 
-    graph_task = asyncio.create_task(run_graph())
+    agent_task = asyncio.create_task(run_agent())
 
     # Main loop: poll queue and yield SSE events
     while True:
-        # Check if graph is done and queue is empty
+        # Check if agent is done and queue is empty
         if graph_done and event_queue.empty():
             break
 
@@ -372,27 +182,17 @@ async def stream_agent(user_input: str, session_id: str = None):
             accumulated_response += event.get("data", "")
         elif event.get("type") == "done":
             accumulated_response = event.get("response", accumulated_response)
-        # 收集思考过程
         elif event.get("type") == "thinking":
             thinking_steps.append(event.get("data", ""))
         elif event.get("type") == "thinking_chunk":
-            # thinking_chunk 追加到最后一步
             chunk = event.get("data", "")
             if thinking_steps:
                 thinking_steps[-1] += chunk
             else:
                 thinking_steps.append(chunk)
-        # 收集路由决策
-        elif event.get("type") == "routing":
-            routing_decision = {
-                "from": event.get("from", ""),
-                "to": event.get("to", ""),
-                "reason": event.get("reason", ""),
-                "confidence": event.get("confidence"),
-            }
 
-    # Wait for graph task to complete
-    await graph_task
+    # Wait for agent task to complete
+    await agent_task
 
     # If we have a final result, ensure we yield done event
     if final_result and final_result.get("final_response"):
@@ -409,13 +209,10 @@ async def stream_agent(user_input: str, session_id: str = None):
 
     # Save assistant response to database with thinking process
     if session_id and accumulated_response:
-        # 将思考过程保存为 JSON 格式
         thinking_data = {
             "steps": thinking_steps,
-            "routing": routing_decision,
         }
         thinking_json = json.dumps(thinking_data, ensure_ascii=False)
-        # 将思考过程也保存为纯文本用于显示
         thinking_text = '\n\n'.join(thinking_steps) if thinking_steps else None
         _update_assistant_message(session_id, accumulated_response, thinking_json, thinking_text)
 
@@ -438,18 +235,7 @@ def _format_event_sse(event: Dict[str, Any]) -> str:
     elif event_type == "thinking_chunk":
         return f"data: {json.dumps({'type': 'thinking_chunk', 'content': event.get('data', '')})}\n\n"
 
-    elif event_type == "routing":
-        routing_data = {
-            "type": "routing",
-            "from": event.get("from", ""),
-            "to": event.get("to", ""),
-            "reason": event.get("reason", ""),
-        }
-        if event.get("confidence"):
-            routing_data["confidence"] = event.get("confidence")
-        return f"data: {json.dumps(routing_data)}\n\n"
-
-    elif event_type == "action":
+    elif event_type == "tool_call":
         action_data = {
             'type': 'action',
             'action': event.get('action', ''),
@@ -458,7 +244,7 @@ def _format_event_sse(event: Dict[str, Any]) -> str:
         }
         return f"data: {json.dumps(action_data)}\n\n"
 
-    elif event_type == "observation":
+    elif event_type == "tool_result":
         obs_data = {
             'type': 'observation',
             'skill': event.get('skill', ''),
@@ -467,12 +253,6 @@ def _format_event_sse(event: Dict[str, Any]) -> str:
             'error': event.get('error'),
         }
         return f"data: {json.dumps(obs_data)}\n\n"
-
-    elif event_type == "node_start":
-        return f"data: {json.dumps({'type': 'node', 'node': event.get('node', ''), 'status': 'start'})}\n\n"
-
-    elif event_type == "node_end":
-        return f"data: {json.dumps({'type': 'node', 'node': event.get('node', ''), 'status': 'end'})}\n\n"
 
     elif event_type == "content":
         return f"data: {json.dumps({'type': 'content', 'content': event.get('data', '')})}\n\n"
@@ -492,7 +272,12 @@ def _format_event_sse(event: Dict[str, Any]) -> str:
         return f"data: {json.dumps(event)}\n\n"
 
 
-def _update_assistant_message(session_id: str, content: str, thinking_process: str = None, thinking_content: str = None):
+def _update_assistant_message(
+    session_id: str,
+    content: str,
+    thinking_process: Optional[str] = None,
+    thinking_content: Optional[str] = None,
+):
     """Update the last assistant message in database.
 
     Args:
@@ -501,164 +286,90 @@ def _update_assistant_message(session_id: str, content: str, thinking_process: s
         thinking_process: Optional thinking/reasoning process JSON string
         thinking_content: Optional raw thinking text
     """
-    from utils.database import get_session_db_connection
+    try:
+        from utils.database import get_session_db_connection
 
-    conn = get_session_db_connection()
-    cursor = conn.cursor()
+        conn = get_session_db_connection()
+        cursor = conn.cursor()
 
-    # Find the last assistant message in this session
-    cursor.execute(
-        """
-        SELECT id FROM messages
-        WHERE session_id = ? AND role = 'assistant'
-        ORDER BY created_at DESC
-        LIMIT 1
-        """,
-        (session_id,)
-    )
-    row = cursor.fetchone()
-
-    if row:
-        message_id = row["id"]
-        cursor.execute(
-            "UPDATE messages SET content = ?, thinking_process = ?, thinking_content = ? WHERE id = ?",
-            (content, thinking_process, thinking_content, message_id)
-        )
-        conn.commit()
-        conn.close()
-    else:
-        # No assistant message found, create one
-        import time
-        import uuid
-        message_id = f"{int(time.time() * 1000)}-{uuid.uuid4().hex[:9]}"
-        created_at = int(time.time() * 1000)
+        # Find the last assistant message in this session
         cursor.execute(
             """
-            INSERT INTO messages (id, session_id, role, content, thinking_process, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            SELECT id FROM messages
+            WHERE session_id = ? AND role = 'assistant'
+            ORDER BY created_at DESC
+            LIMIT 1
             """,
-            (message_id, session_id, "assistant", content, thinking_process, created_at)
+            (session_id,)
         )
-        # Update session's updated_at
-        cursor.execute(
-            "UPDATE sessions SET updated_at = ? WHERE id = ?",
-            (created_at, session_id)
-        )
-        conn.commit()
-        conn.close()
+        row = cursor.fetchone()
+
+        if row:
+            message_id = row["id"]
+            cursor.execute(
+                "UPDATE messages SET content = ?, thinking_process = ?, thinking_content = ? WHERE id = ?",
+                (content, thinking_process, thinking_content, message_id)
+            )
+            conn.commit()
+            conn.close()
+        else:
+            # No assistant message found, create one
+            message_id = f"{int(time.time() * 1000)}-{uuid.uuid4().hex[:9]}"
+            created_at = int(time.time() * 1000)
+            cursor.execute(
+                """
+                INSERT INTO messages (id, session_id, role, content, thinking_process, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (message_id, session_id, "assistant", content, thinking_process, created_at)
+            )
+            # Update session's updated_at
+            cursor.execute(
+                "UPDATE sessions SET updated_at = ? WHERE id = ?",
+                (created_at, session_id)
+            )
+            conn.commit()
+            conn.close()
+    except Exception as e:
+        logger.error(f"Failed to save assistant message: {e}", exc_info=True)
 
 
-class AgentRunner:
-    """Runner for executing the agent workflow.
+# Keep backward compatibility with old workflow API
+def create_workflow():
+    """Create workflow (backward compatibility — returns None, not used)."""
+    return None
 
-    Provides methods to run the agent with various configurations.
+
+def compile_workflow():
+    """Compile workflow (backward compatibility — returns None, not used)."""
+    return None
+
+
+def get_graph():
+    """Get compiled graph (backward compatibility — returns None, not used)."""
+    return None
+
+
+def run_agent(user_input: str) -> Dict[str, Any]:
+    """Run agent synchronously (backward compatibility).
+
+    Note: This is a thin wrapper around the new agent core.
+    Prefer using run_agent_async or stream_agent_core for new code.
     """
-
-    def __init__(self):
-        """Initialize agent runner."""
-        self.graph = compile_workflow()
-
-    def run(self, user_input: str) -> Dict[str, Any]:
-        """Run agent synchronously.
-
-        Args:
-            user_input: User input
-
-        Returns:
-            Result dictionary.
-        """
-        initial_state = create_initial_state(user_input)
-        return self.graph.invoke(initial_state)
-
-    async def run_async(self, user_input: str) -> Dict[str, Any]:
-        """Run agent asynchronously.
-
-        Args:
-            user_input: User input
-
-        Returns:
-            Result dictionary.
-        """
-        initial_state = create_initial_state(user_input)
-        return await self.graph.ainvoke(initial_state)
-
-    def stream(self, user_input: str) -> Any:
-        """Stream agent execution.
-
-        Args:
-            user_input: User input
-
-        Returns:
-            Stream of state updates.
-        """
-        initial_state = create_initial_state(user_input)
-        return self.graph.stream(initial_state)
+    event_queue = asyncio.Queue()
+    loop = asyncio.get_event_loop()
+    return loop.run_until_complete(run_agent_core(user_input, event_queue))
 
 
-# ========================================
-# Helper functions for testing and debugging
-# ========================================
+async def run_agent_async(user_input: str) -> Dict[str, Any]:
+    """Run agent asynchronously (backward compatibility).
 
-def get_workflow_graph_visualization() -> str:
-    """Get ASCII visualization of the workflow.
-
-    Returns:
-        ASCII diagram of the workflow.
+    Note: This is a thin wrapper around the new agent core.
     """
-    return """
-Workflow Graph:
+    event_queue = asyncio.Queue()
+    return await run_agent_core(user_input, event_queue)
 
-    Start → Intent
-           ↓
-    ┌──────┼──────────────────┐
-    │      │                  │
-    │      │                  │
- NORMAL  RAG             TOOL/
-  CHAT  DOMINANT        REASONING
-    │      │                  │
-    ↓      ↓                  ↓
- Direct  RagQuery         Planner
- Answer      ↓               ↓
-    │   AnswerFromRag   InputPrepare
-    │      ↓               ↓
-    │   Finalize         Think
-    │                     ↓
-    │                SkillSelect
-    │                     ↓
-    │                 SkillExec
-    │                     ↓
-    │                   Observe
-    │                     ↓
-    │                 StateRouter
-    │         ┌───────────┼───────────┐
-    │         │           │           │
-    │    SUCCESS      NEEDS_      RETRYABLE
-    │    COMPLETE    KNOWLEDGE     (ok)
-    │         │           │           │
-    │         ↓           ↓           ↓
-    │     Finalize    ProactiveRAG   Retry
-    │                     ↓           ↓
-    │                InjectKnowledge UpdateRetry
-    │                     ↓           ↓
-    │                 InputPrepare InputPrepare
-    │                     
-    │    SUCCESS      RETRYABLE    NEEDS_
-    │    CONTINUE    EXCEEDED     USER_INPUT
-    │         │           │           │
-    │         ↓           ↓           ↓
-    │    UpdateState  Finalize    UserConfirm
-    │         ↓                     ↓
-    │    InputPrepare         WaitUserResp
-    │                             ↓
-    │                        InputPrepare
-    │
-    │    FATAL_      NEEDS_
-    │    ERROR       REPLAN
-    │         │           │
-    │         ↓           ↓
-    │     Finalize      RePlan
-    │                     ↓
-    │                  Planner
-    ↓
- Finalize → END
-"""
+
+# The old stream_agent function is replaced with stream_agent_core
+# Keep the same name for API compatibility
+stream_agent = stream_agent_core

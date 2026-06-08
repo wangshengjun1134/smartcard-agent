@@ -1,6 +1,8 @@
 """Agent API Router for agent chat endpoints.
 
 This module provides the FastAPI router for agent-related endpoints.
+
+Uses the AgentCore-based reasoning loop (qwen-code style).
 """
 
 from fastapi import APIRouter, HTTPException
