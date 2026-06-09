@@ -479,7 +479,7 @@ export default function ApduConsole() {
                         : 'bg-[#fff1f0] text-[#ff4d4f]'
                     }`}
                   >
-                    {reader.connected ? '已连接' : '未连接'}
+                    {reader.connected ? '有卡' : '无卡'}
                   </span>
                 </div>
               ))}
