@@ -293,28 +293,45 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: transparent;
+    background: rgba(0, 0, 0, 0.15);
     border-radius: 4px;
     transition: background 0.2s;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-send-disabled);
+    background: rgba(0, 0, 0, 0.25);
   }
 
-  /* Sidebar 悬停时显示滚动条 */
+  /* Sidebar 悬停时滚动条更明显 */
   .sidebar-container:hover ::-webkit-scrollbar-thumb {
-    background: var(--color-border-light);
+    background: rgba(0, 0, 0, 0.2);
   }
   .sidebar-container:hover ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-send-disabled);
+    background: rgba(0, 0, 0, 0.3);
   }
 
-  /* 消息列表悬停时显示滚动条 */
-  .message-list:hover ::-webkit-scrollbar-thumb {
-    background: var(--color-border-light);
+  /* 消息列表滚动条 */
+  .message-list ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
   }
-  .message-list:hover ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-send-disabled);
+  .message-list:hover ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.25);
+  }
+
+  /* 深色模式滚动条 */
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
+  .dark .sidebar-container:hover ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  .dark .message-list ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+  }
+  .dark .message-list:hover ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25);
   }
 
   /* 深色模式下的对话框背景 */
