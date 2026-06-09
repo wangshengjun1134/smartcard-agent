@@ -457,7 +457,6 @@ export default function ApduConsole() {
             onClick={handleToggleDropdown}
             title={selectedReader || undefined}
           >
-            <ReaderIcon />
             <span>{selectedReader ? truncateReaderName(selectedReader) : '请选择读卡器'}</span>
             <ChevronDownIcon />
           </button>
