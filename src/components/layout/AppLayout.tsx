@@ -53,7 +53,7 @@ export function AppLayout({ sidebar, main, sidebarOpen: externalSidebarOpen, onT
         )}
 
         {/* 主内容区 - 圆角设计 */}
-        <div className="flex-1 flex flex-col rounded-xl overflow-hidden bg-white dark:bg-[#222222] shadow-sm">
+        <div className="flex-1 flex flex-col rounded-xl bg-white dark:bg-[#222222] shadow-sm">
           {main}
         </div>
       </div>

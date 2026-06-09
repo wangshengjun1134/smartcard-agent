@@ -225,15 +225,16 @@ function App() {
         {/* 内容区域 */}
         {hasMessages ? (
           <>
-            <div className="flex-1 min-h-0 flex flex-col">
+            {/* 消息列表容器 - 允许内部滚动 */}
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
               <MessageList
                 messages={currentSession?.messages || []}
                 isLoading={false}
                 hasSession={!!currentSessionId}
               />
             </div>
-            {/* 输入区域 - 底部 */}
-            <div className="flex flex-col items-center pb-3 shrink-0">
+            {/* 输入区域 - 底部固定 */}
+            <div className="flex flex-col items-center pb-3 shrink-0 border-t border-gray-100 dark:border-gray-800">
               <ChatInput
                 onSend={handleSendMessage}
                 disabled={false}
