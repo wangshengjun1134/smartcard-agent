@@ -15,9 +15,40 @@ interface ReaderInfo {
 }
 
 const MAX_ENTRIES = 50;
+const MAX_READER_NAME_LENGTH = 35;
 
 // API 基础 URL
 const API_BASE = 'http://127.0.0.1:8000/api';
+
+// 智能截断读卡器名称
+function truncateReaderName(fullName: string): string {
+  if (fullName.length <= MAX_READER_NAME_LENGTH) {
+    return fullName;
+  }
+
+  // 尝试提取序列号（括号中的数字）
+  const serialMatch = fullName.match(/\((\d+)\)/);
+  const serialSuffix = serialMatch ? serialMatch[1].slice(-6) : null;
+
+  // 提取厂商 + 型号（前几个单词）
+  const parts = fullName.split(/\s+/);
+  let shortName = '';
+  for (const part of parts) {
+    if ((shortName + ' ' + part).length > 20) break;
+    shortName = shortName ? shortName + ' ' + part : part;
+  }
+
+  // 组合：短名称 + 序列号后6位
+  if (serialSuffix) {
+    const truncated = `${shortName} …(${serialSuffix})`;
+    if (truncated.length <= MAX_READER_NAME_LENGTH) {
+      return truncated;
+    }
+  }
+
+  // 回退：简单截断
+  return fullName.slice(0, MAX_READER_NAME_LENGTH - 1) + '…';
+}
 
 function getCurrentTime(): string {
   const d = new Date();
@@ -412,13 +443,14 @@ export default function ApduConsole() {
           <button
             className="flex items-center gap-1.5 px-2.5 py-1 bg-transparent border-none rounded-md cursor-pointer text-sm text-[#333] transition-[background] duration-150 hover:bg-[#e5e5e5]"
             onClick={handleToggleDropdown}
+            title={selectedReader || undefined}
           >
             <ReaderIcon />
-            <span>{selectedReader || '请选择读卡器'}</span>
+            <span>{selectedReader ? truncateReaderName(selectedReader) : '请选择读卡器'}</span>
             <ChevronDownIcon />
           </button>
           {isDropdownOpen && (
-            <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg z-[1000] p-1 whitespace-nowrap">
+            <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg z-[1000] p-1 min-w-[360px]">
               {readers.map((reader) => (
                 <div
                   key={reader.name}
@@ -428,6 +460,7 @@ export default function ApduConsole() {
                       : 'hover:bg-[#f7f8fa]'
                   }`}
                   onClick={() => handleSelectReader(reader.name)}
+                  title={reader.name}
                 >
                   <span
                     className={
@@ -438,9 +471,9 @@ export default function ApduConsole() {
                   >
                     <CheckCircleIcon />
                   </span>
-                  <span>{reader.name}</span>
+                  <span className="truncate max-w-[280px]">{truncateReaderName(reader.name)}</span>
                   <span
-                    className={`inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded ml-auto ${
+                    className={`inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded ml-auto flex-shrink-0 ${
                       reader.connected
                         ? 'bg-[#e6f7e6] text-[#52c41a]'
                         : 'bg-[#fff1f0] text-[#ff4d4f]'
