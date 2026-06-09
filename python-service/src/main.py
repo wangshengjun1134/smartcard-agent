@@ -28,10 +28,13 @@ setup_logging()
 async def lifespan(app: FastAPI):
     """Application lifespan handler.
 
-    Initializes databases and preloads embeddings model on startup.
+    Initializes databases, preloads embeddings model, and sets up PCSC runtime context.
     """
     import asyncio
     from llm.embeddings import get_embeddings
+    from runtime.context import RuntimeContext
+    from tools.pcsc.client import PcscClient
+    from agents.tools.builtin import set_runtime_context
 
     # Initialize databases on startup
     init_knowledge_database()
@@ -42,7 +45,29 @@ async def lifespan(app: FastAPI):
     await asyncio.to_thread(get_embeddings)
     print("Embeddings model loaded successfully")
 
+    # Create shared runtime context with PCSC client
+    print("Initializing PCSC runtime context...")
+    ctx = RuntimeContext()
+    client = PcscClient()
+    ctx.attach_client(client)
+    set_runtime_context(ctx)
+    print("PCSC runtime context initialized")
+
+    # Discover and register skill plugins
+    print("Discovering skill plugins...")
+    from skills.registry_extension import discover_and_register_skills
+    registered = discover_and_register_skills()
+    print(f"Skill plugins registered: {len(registered)} skills")
+
     yield
+
+    # Cleanup on shutdown
+    print("Shutting down PCSC client...")
+    try:
+        if ctx.pcsc_client:
+            ctx.pcsc_client.disconnect()
+    except Exception:
+        pass
 
 
 app = FastAPI(

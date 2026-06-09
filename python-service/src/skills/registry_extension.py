@@ -1,292 +1,237 @@
-"""Skill Registry Extension - Auto-registration and organization.
+"""Skill Registry Extension for dynamic plugin discovery.
 
-This module provides utilities for registering all skill categories
-and organizing the skill hierarchy.
+This module provides automatic discovery and registration of skills
+from plugin directories:
+- `.skills/` - built-in skills directory
+- `external_skills/` - user-custom skills directory
+- `SKILL_DIRS` env var - additional custom directories
+
+Each skill plugin is a directory containing:
+- `skill.md` (preferred) or `skill.json` - metadata
+- `__init__.py` - skill implementation with register() function
+
+Example skill.md:
+    ---
+    name: read_iccid
+    description: Read ICCID from smart card
+    category: composite
+    requires_pin: false
+    dangerous: false
+    ---
+
+    # Read ICCID
+
+    Read the ICCID from a smart card using ISO 7816 SELECT + READ BINARY.
+
+    ## APDU Flow
+    1. SELECT MF (3F00)
+    2. SELECT EF_ICCID (2FE2)
+    3. READ BINARY (10 bytes)
+
+Example __init__.py:
+    from skills.base.base_skill import BaseSkill, SkillResult
+
+    class ReadIccidSkill(BaseSkill):
+        name = "read_iccid"
+        description = "Read ICCID"
+        async def run(self, ctx, params): ...
+
+    def register():
+        return ReadIccidSkill()
 """
 
-from typing import Dict, Any, List
-from skills.base.registry import SkillRegistry, get_registry
+import importlib.util
+import json
+import logging
+import os
+import re
+from pathlib import Path
+from typing import Dict, Optional
+
+from skills.base.registry import get_registry
+
+logger = logging.getLogger(__name__)
 
 
-# Skill category definitions
-SKILL_CATEGORIES = {
-    # A. Reader / Session Primitive
-    "reader": {
-        "skills": [
-            "connect", "disconnect", "reconnect", "reset_card",
-            "get_reader_info", "on_card", "session_management",
-        ],
-        "description": "Card reader and session management",
-        "count": 7,
-    },
+def discover_and_register_skills(
+    extra_dirs: list[str] | None = None,
+) -> Dict[str, str]:
+    """Discover and register skills from plugin directories.
 
-    # B. ISO7816 Core Primitive
-    "iso7816": {
-        "skills": [
-            "send_apdu", "select", "read_binary", "read_record",
-            "get_response", "verify", "change_pin", "unblock_pin",
-            "get_challenge", "internal_authenticate", "manage_channel",
-        ],
-        "description": "ISO7816-4 core commands",
-        "count": 11,
-    },
-
-    # C. FileSystem Primitive
-    "filesystem": {
-        "skills": [
-            "select_mf", "select_df", "select_ef", "resolve_path",
-            "read_transparent_ef", "read_linear_fixed_ef",
-            "discover_applications",
-        ],
-        "description": "File system navigation and operations",
-        "count": 7,
-    },
-
-    # D. Security Primitive
-    "security": {
-        "skills": [
-            "verify_pin", "verify_adm", "get_pin_status",
-            "change_pin", "unblock_pin",
-            "open_secure_channel", "close_secure_channel",
-            "wrap_secure_apdu", "calculate_mac",
-        ],
-        "description": "Authentication and secure channel",
-        "count": 9,
-    },
-
-    # E. SCP80 Primitive
-    "scp80": {
-        "skills": [
-            "establish_scp80", "send_secured_sms",
-            "build_ota_packet", "encrypt_ota_packet",
-            "calculate_ota_mac",
-        ],
-        "description": "SCP80 OTA operations",
-        "count": 5,
-    },
-
-    # F. SCP03 Primitive
-    "scp03": {
-        "skills": [
-            "scp03_initialize_update", "scp03_external_authenticate",
-            "scp03_wrap", "scp03_unwrap",
-            "scp03_encrypt", "scp03_mac", "scp03_rmac",
-        ],
-        "description": "SCP03 secure channel",
-        "count": 7,
-    },
-
-    # G. GlobalPlatform Primitive
-    "globalplatform": {
-        "skills": [
-            "gp_select_isd", "gp_get_status", "gp_install",
-            "gp_load", "gp_delete", "gp_put_key",
-            "gp_store_data", "gp_set_status",
-        ],
-        "description": "GlobalPlatform card management",
-        "count": 8,
-    },
-
-    # H. JavaCard Primitive
-    "javacard": {
-        "skills": [
-            "jc_install_applet", "jc_delete_applet",
-            "jc_select_applet", "jc_send_apdu",
-            "jc_get_applet_info",
-        ],
-        "description": "JavaCard applet operations",
-        "count": 5,
-    },
-
-    # I. eUICC Primitive
-    "euicc": {
-        "skills": [
-            "euicc_get_eid", "euicc_list_profiles",
-            "euicc_enable_profile", "euicc_disable_profile",
-            "euicc_delete_profile", "euicc_download_profile",
-            "euicc_get_profile_info", "euicc_set_nickname",
-            "euicc_reset_memory", "euicc_get_config",
-        ],
-        "description": "eUICC profile management",
-        "count": 10,
-    },
-
-    # J. Discovery Primitive
-    "discovery": {
-        "skills": [
-            "detect_card_type", "detect_usim", "detect_isim",
-            "detect_euicc", "detect_scp", "detect_gp",
-            "probe_capabilities", "fingerprint_card",
-        ],
-        "description": "Card capability detection",
-        "count": 8,
-    },
-
-    # K. Runtime Primitive
-    "runtime": {
-        "skills": [
-            "save_checkpoint", "restore_checkpoint",
-            "rollback", "replay", "retry_last_action",
-            "validate_runtime_state", "verify_preconditions",
-            "resolve_next_action", "audit_log",
-        ],
-        "description": "Runtime state management",
-        "count": 9,
-    },
-}
-
-
-def register_all_skills(registry: SkillRegistry = None) -> Dict[str, int]:
-    """Register all skills from all categories.
+    Scans directories in order:
+    1. `.skills/` (project root)
+    2. `external_skills/` (project root)
+    3. Extra dirs from `SKILL_DIRS` env var
+    4. Extra dirs from `extra_dirs` parameter
 
     Args:
-        registry: Registry to register skills (default: global registry)
+        extra_dirs: Additional plugin directories to scan.
 
     Returns:
-        Dictionary of category -> skill count.
+        Mapping of skill name -> source directory.
     """
-    if registry is None:
-        registry = get_registry()
+    results = {}
+    project_root = Path(__file__).parent.parent.parent
 
-    counts = {}
+    # Directories to scan, in priority order
+    scan_dirs: list[tuple[Path, str]] = [
+        (project_root / ".skills", "builtin"),
+        (project_root / "external_skills", "external"),
+    ]
 
-    # Register Reader skills
-    try:
-        from skills.primitive.connect import register_reader_skills
-        register_reader_skills(registry)
-        counts["reader"] = SKILL_CATEGORIES["reader"]["count"]
-    except Exception:
-        counts["reader"] = 0
+    # Add env var directories
+    env_dirs = os.getenv("SKILL_DIRS", "").split(":")
+    for d in env_dirs:
+        d = d.strip()
+        if d:
+            scan_dirs.append((Path(d), "env"))
 
-    # Register ISO7816 skills
-    try:
-        from skills.primitive.iso7816 import register_iso7816_skills
-        register_iso7816_skills(registry)
-        counts["iso7816"] = SKILL_CATEGORIES["iso7816"]["count"]
-    except Exception:
-        counts["iso7816"] = 0
+    # Add parameter directories
+    if extra_dirs:
+        for d in extra_dirs:
+            scan_dirs.append((Path(d), "param"))
 
-    # Register FileSystem skills
-    try:
-        from skills.filesystem import register_filesystem_skills
-        register_filesystem_skills(registry)
-        counts["filesystem"] = SKILL_CATEGORIES["filesystem"]["count"]
-    except Exception:
-        counts["filesystem"] = 0
+    for dir_path, source in scan_dirs:
+        if dir_path.exists() and dir_path.is_dir():
+            results.update(_scan_directory(dir_path, source))
 
-    # Register Security skills
-    try:
-        from skills.security import register_security_skills
-        register_security_skills(registry)
-        counts["security"] = SKILL_CATEGORIES["security"]["count"]
-    except Exception:
-        counts["security"] = 0
-
-    # Register SCP80 skills
-    try:
-        from skills.scp80 import register_scp80_skills
-        register_scp80_skills(registry)
-        counts["scp80"] = SKILL_CATEGORIES["scp80"]["count"]
-    except Exception:
-        counts["scp80"] = 0
-
-    # Register SCP03 skills
-    try:
-        from skills.scp03 import register_scp03_skills
-        register_scp03_skills(registry)
-        counts["scp03"] = SKILL_CATEGORIES["scp03"]["count"]
-    except Exception:
-        counts["scp03"] = 0
-
-    # Register GlobalPlatform skills
-    try:
-        from skills.globalplatform import register_globalplatform_skills
-        register_globalplatform_skills(registry)
-        counts["globalplatform"] = SKILL_CATEGORIES["globalplatform"]["count"]
-    except Exception:
-        counts["globalplatform"] = 0
-
-    # Register JavaCard skills
-    try:
-        from skills.javacard import register_javacard_skills
-        register_javacard_skills(registry)
-        counts["javacard"] = SKILL_CATEGORIES["javacard"]["count"]
-    except Exception:
-        counts["javacard"] = 0
-
-    # Register eUICC skills
-    try:
-        from skills.euicc import register_euicc_skills
-        register_euicc_skills(registry)
-        counts["euicc"] = SKILL_CATEGORIES["euicc"]["count"]
-    except Exception:
-        counts["euicc"] = 0
-
-    # Register Discovery skills
-    try:
-        from skills.discovery import register_discovery_skills
-        register_discovery_skills(registry)
-        counts["discovery"] = SKILL_CATEGORIES["discovery"]["count"]
-    except Exception:
-        counts["discovery"] = 0
-
-    # Register Runtime skills
-    try:
-        from skills.runtime_primitive import register_runtime_skills
-        register_runtime_skills(registry)
-        counts["runtime"] = SKILL_CATEGORIES["runtime"]["count"]
-    except Exception:
-        counts["runtime"] = 0
-
-    return counts
+    logger.info(f"Discovered {len(results)} skills: {list(results.keys())}")
+    return results
 
 
-def get_skill_categories() -> Dict[str, Dict[str, Any]]:
-    """Get skill category definitions.
-
-    Returns:
-        Dictionary of category -> definition.
-    """
-    return SKILL_CATEGORIES
-
-
-def get_skills_by_category(category: str) -> List[str]:
-    """Get skill names by category.
+def _scan_directory(plugin_dir: Path, source: str) -> Dict[str, str]:
+    """Scan a directory for skill plugins.
 
     Args:
-        category: Category name
+        plugin_dir: Directory to scan.
+        source: Source label for logging.
 
     Returns:
-        List of skill names.
+        Mapping of skill name -> full path.
     """
-    return SKILL_CATEGORIES.get(category, {}).get("skills", [])
+    results = {}
+
+    for item in sorted(plugin_dir.iterdir()):
+        if not item.is_dir():
+            continue
+
+        init_file = item / "__init__.py"
+        if not init_file.exists():
+            logger.debug(f"Skipping {item.name}: missing __init__.py")
+            continue
+
+        # Prefer skill.md, fallback to skill.json
+        skill_md = item / "skill.md"
+        skill_json = item / "skill.json"
+
+        metadata_file = skill_md if skill_md.exists() else (skill_json if skill_json.exists() else None)
+        if metadata_file is None:
+            logger.debug(f"Skipping {item.name}: missing skill.md or skill.json")
+            continue
+
+        try:
+            _load_plugin(item, metadata_file, init_file, source)
+            results[item.name] = str(item)
+        except Exception as e:
+            logger.error(f"Failed to load plugin {item.name}: {e}")
+
+    return results
 
 
-def get_total_skill_count() -> int:
-    """Get total number of defined skills.
+def _parse_md_frontmatter(content: str) -> Optional[Dict]:
+    """Parse YAML frontmatter from markdown content.
+
+    Args:
+        content: Markdown file content.
 
     Returns:
-        Total skill count.
+        Parsed frontmatter dict, or None if no frontmatter found.
     """
-    total = 0
-    for category in SKILL_CATEGORIES:
-        total += SKILL_CATEGORIES[category].get("count", len(SKILL_CATEGORIES[category]["skills"]))
-    return total
+    match = re.match(r'^---\s*\n(.*?)\n---\s*\n(.*)$', content, re.DOTALL)
+    if not match:
+        return None
+
+    yaml_text = match.group(1)
+    metadata = {}
+
+    for line in yaml_text.strip().split('\n'):
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if ':' in line:
+            key, _, value = line.partition(':')
+            key = key.strip()
+            value = value.strip()
+            # Parse basic types
+            if value.lower() == 'true':
+                metadata[key] = True
+            elif value.lower() == 'false':
+                metadata[key] = False
+            elif value.isdigit():
+                metadata[key] = int(value)
+            else:
+                metadata[key] = value.strip('"').strip("'")
+
+    return metadata
 
 
-def print_skill_summary() -> None:
-    """Print skill summary."""
-    print("Skill Categories Summary:")
-    print("=" * 60)
+def _load_metadata(file_path: Path) -> Dict:
+    """Load metadata from skill.md or skill.json.
 
-    for category, info in SKILL_CATEGORIES.items():
-        skill_count = info.get("count", len(info["skills"]))
-        print(f"{category:15} : {skill_count:3} skills - {info['description']}")
+    Args:
+        file_path: Path to metadata file.
 
-    print("=" * 60)
-    print(f"Total: {get_total_skill_count()} skills defined")
+    Returns:
+        Metadata dictionary.
+    """
+    if file_path.suffix == '.md':
+        with open(file_path) as f:
+            content = f.read()
+        metadata = _parse_md_frontmatter(content)
+        if metadata is None:
+            raise ValueError(f"No YAML frontmatter found in {file_path}")
+        return metadata
+    else:
+        with open(file_path) as f:
+            return json.load(f)
 
 
-# Auto-registration on import (optional)
-# Uncomment to auto-register on module import:
-# register_all_skills()
+def _load_plugin(
+    plugin_dir: Path,
+    metadata_file: Path,
+    init_file: Path,
+    source: str,
+) -> None:
+    """Load and register a single skill plugin.
+
+    Args:
+        plugin_dir: Plugin directory.
+        metadata_file: Path to skill.md or skill.json.
+        init_file: Path to __init__.py.
+        source: Source label.
+    """
+    # Load metadata
+    metadata = _load_metadata(metadata_file)
+
+    skill_name = metadata.get("name", plugin_dir.name)
+    category = metadata.get("category", "primitive")
+
+    # Dynamically import the plugin module
+    module_name = f"_skill_plugin_{plugin_dir.name}"
+    spec = importlib.util.spec_from_file_location(module_name, str(init_file))
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load spec for {init_file}")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    # Call register() to get skill instance
+    if not hasattr(module, "register"):
+        raise ImportError(f"Plugin {plugin_dir.name} has no register() function")
+
+    skill = module.register()
+
+    # Register in global registry
+    registry = get_registry()
+    registry.register(skill, category)
+    logger.info(f"Registered skill: {skill_name} ({source}: {plugin_dir.name})")

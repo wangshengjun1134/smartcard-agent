@@ -18,7 +18,29 @@ from typing import Dict, Any, Optional
 from agents.core.tool_scheduler import ToolScheduler, ToolDefinition, ToolResult
 from agents.core.events import emit_content
 
+# Shared runtime context (set at startup, accessed by skill handlers)
+_runtime_context = None
+
 logger = logging.getLogger(__name__)
+
+
+def set_runtime_context(ctx) -> None:
+    """Set the shared runtime context for skill execution.
+
+    Args:
+        ctx: RuntimeContext instance with PCSC client attached.
+    """
+    global _runtime_context
+    _runtime_context = ctx
+
+
+def get_runtime_context():
+    """Get the shared runtime context.
+
+    Returns:
+        RuntimeContext instance or None if not set.
+    """
+    return _runtime_context
 
 
 def register_builtin_tools(scheduler: ToolScheduler) -> None:
@@ -43,10 +65,6 @@ def register_builtin_tools(scheduler: ToolScheduler) -> None:
 def _register_skill_tools(scheduler: ToolScheduler) -> None:
     """Register tools that wrap existing skills."""
     from skills.base.registry import get_registry
-    from skills.registry_extension import register_all_skills
-
-    # Auto-register all skills first
-    register_all_skills()
 
     registry = get_registry()
 
@@ -129,50 +147,41 @@ def _make_skill_handler(skill) -> callable:
 def _build_skill_context(skill) -> Any:
     """Build a skill execution context.
 
-    TODO: Implement proper context with:
-    - PCSC client
-    - Runtime state
-    - Skill registry for nested calls
+    Returns the shared RuntimeContext which holds:
+    - PCSC client for hardware communication
+    - Current connection/file/security state
+    - Execution history
 
     Args:
         skill: Skill instance
 
     Returns:
-        Execution context (placeholder for now).
+        RuntimeContext instance (or MockContext if not initialized).
     """
-    # Placeholder — need to wire up actual PCSC client and runtime context
+    global _runtime_context
+    if _runtime_context is not None:
+        return _runtime_context
+
+    # Fallback: MockContext for testing without full setup
     class MockContext:
         def __init__(self):
             self.connected = False
             self.card_type = None
             self.card_capabilities = []
             self.secure_channel_state = type('State', (), {'value': 'none'})()
+            self.pcsc_client = None
 
         def is_pin_verified(self, pin_ref: int) -> bool:
             return False
+
+        def send_apdu(self, apdu, check_sw=True):
+            raise RuntimeError("No PCSC client attached — use set_runtime_context() first")
 
     return MockContext()
 
 
 def _register_utility_tools(scheduler: ToolScheduler) -> None:
     """Register utility tools."""
-
-    # finalize tool — let the model indicate it's done
-    scheduler.register(ToolDefinition(
-        name="finalize",
-        description="Call this tool when you have completed the task and want to provide a final response to the user.",
-        parameters={
-            "type": "object",
-            "properties": {
-                "response": {
-                    "type": "string",
-                    "description": "The final response to show to the user.",
-                },
-            },
-            "required": ["response"],
-        },
-        handler=_finalize_handler,
-    ))
 
     # ask_user tool — for when the agent needs clarification
     scheduler.register(ToolDefinition(
@@ -192,21 +201,18 @@ def _register_utility_tools(scheduler: ToolScheduler) -> None:
     ))
 
 
-async def _finalize_handler(response: str) -> ToolResult:
-    """Finalize tool handler — signals completion.
-
-    In the reasoning loop, this tool's result will be treated as the final answer.
-    """
-    return ToolResult(success=True, data=response)
-
-
-async def _ask_user_handler(question: str) -> ToolResult:
+async def _ask_user_handler(**kwargs) -> ToolResult:
     """Ask user tool handler.
 
-    TODO: Implement proper user interaction flow.
-    For now, return a placeholder.
+    Rejects empty questions to prevent infinite loops.
     """
+    question = kwargs.get("question", "").strip()
+    if not question:
+        return ToolResult(
+            success=False,
+            error="Empty question — agent should proceed with available tools instead of asking.",
+        )
     return ToolResult(
         success=True,
-        data=f"[User interaction needed] Question: {question}\nNote: User confirmation flow not yet implemented.",
+        data=f"[User interaction needed] Question: {question}",
     )

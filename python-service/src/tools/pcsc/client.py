@@ -135,11 +135,16 @@ class PcscClient:
 
         # Create connection
         try:
+            from smartcard.CardConnection import CardConnection
             self.connection = self.reader.createConnection()
-            self.connection.connect()
+            # Try T1 first, fallback to T0
+            try:
+                self.connection.connect(CardConnection.T1_protocol)
+            except Exception:
+                self.connection.connect(CardConnection.T0_protocol)
         except NoCardException:
             raise CardNotFoundError(self.reader_name)
-        except CardConnectionException as e:
+        except Exception as e:
             raise ConnectionLostError(f"Failed to connect: {e}")
 
         # Get ATR
@@ -219,7 +224,7 @@ class PcscClient:
         try:
             data, sw1, sw2 = self.connection.transmit(apdu)
         except Exception as e:
-            # Check for connection lost
+            # Mark connection as lost
             self._connected = False
             raise ConnectionLostError(f"APDU transmission failed: {e}")
 

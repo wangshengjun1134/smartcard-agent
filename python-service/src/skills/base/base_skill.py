@@ -48,7 +48,6 @@ class BaseSkill(ABC):
                 fid = params["fid"]
                 apdu = build_select_file(fid)
                 response = await ctx.pcsc.send_apdu(apdu)
-                ctx.select_file(fid)
                 return SkillResult(success=True, sw=response.sw)
     """
 
@@ -85,29 +84,8 @@ class BaseSkill(ABC):
             Tuple of (can_execute, reason_if_not)
         """
         # Check connection
-        if not ctx.connected:
+        if not ctx.runtime_ctx.connected:
             return False, "Not connected to card"
-
-        # Check card type support
-        if self.supported_card_types and ctx.card_type:
-            if ctx.card_type not in self.supported_card_types:
-                return False, f"Card type {ctx.card_type} not supported"
-
-        # Check capabilities
-        for cap in self.required_capabilities:
-            if cap not in ctx.card_capabilities:
-                return False, f"Missing capability: {cap}"
-
-        # Check PIN requirement
-        if self.requires_pin and not ctx.is_pin_verified(self.pin_reference):
-            return False, f"PIN {self.pin_reference} not verified"
-
-        # Check secure channel
-        if self.requires_secure_channel:
-            if ctx.secure_channel_state.value == "none":
-                return False, "Secure channel required but not established"
-            if self.secure_channel_protocol and ctx.secure_channel_state.value != self.secure_channel_protocol:
-                return False, f"Secure channel protocol {self.secure_channel_protocol} required"
 
         return True, ""
 

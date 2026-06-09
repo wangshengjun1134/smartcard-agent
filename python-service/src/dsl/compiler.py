@@ -300,9 +300,10 @@ class APDSLExecutor:
                 result["sw"] = response.sw
                 result["success"] = response.success
 
-                # Update runtime context
+                # Update runtime context (connection state only)
                 if runtime_ctx and response.success:
-                    runtime_ctx.select_file(command.params["fid"])
+                    # File selection is managed by APDU commands
+                    pass
 
             elif command.command_type == CommandType.READ_BINARY:
                 apdu = build_read_binary(

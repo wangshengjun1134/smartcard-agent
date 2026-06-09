@@ -1,1 +1,0 @@
-"""Workflow skills - complex multi-step procedures."""

@@ -5,6 +5,7 @@ including listing readers and sending APDU commands.
 """
 
 import logging
+import traceback
 from typing import List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -51,10 +52,6 @@ class ConnectResponse(BaseModel):
     reader: str
     connected: bool
     atr: str = ""  # ATR in hex format
-
-
-# 存储读卡器连接会话
-_reader_connections: dict = {}
 
 
 # ========== Endpoints ==========
@@ -120,36 +117,41 @@ async def connect_reader(request: ConnectRequest) -> ConnectResponse:
         HTTPException: If reader not found or connection fails.
     """
     try:
+        from agents.tools.builtin import get_runtime_context
         from smartcard.System import readers
-        from smartcard.Exceptions import CardConnectionException
 
+        ctx = get_runtime_context()
+        if ctx is None:
+            raise HTTPException(status_code=500, detail="Runtime context not initialized")
+
+        client = ctx.pcsc_client
+        if client is None:
+            raise HTTPException(status_code=500, detail="No PCSC client attached")
+
+        # 查找读卡器
         available_readers = readers()
         reader = next((r for r in available_readers if r.name == request.reader), None)
         if not reader:
             raise HTTPException(status_code=404, detail=f"Reader '{request.reader}' not found")
 
         # 检查是否已连接
-        if request.reader in _reader_connections:
-            return ConnectResponse(reader=request.reader, connected=True)
+        if ctx.connected and ctx.current_reader == request.reader:
+            return ConnectResponse(reader=request.reader, connected=True, atr=ctx.atr.hex() if ctx.atr else "")
 
-        # 创建连接
-        conn = reader.createConnection()
-        conn.connect()
-        _reader_connections[request.reader] = conn
+        # 断开旧连接
+        if ctx.connected:
+            client.disconnect()
 
-        # 获取 ATR - 有些读卡器需要短暂延迟才能返回 ATR
-        import time
-        time.sleep(0.2)
-        atr_bytes = conn.getATR()
-        logger.info(f"ATR bytes: {atr_bytes}")
+        # 连接到指定读卡器（通过索引）
+        reader_index = list(available_readers).index(reader)
+        client.reader_index = reader_index
+        atr = client.connect(reader_index)
+        # pyscard getATR() returns list[int], convert to bytes
+        atr_bytes = bytes(atr) if isinstance(atr, list) else atr
+        atr_hex = atr_bytes.hex().upper()
 
-        # 如果第一次没拿到，重试一次
-        if not atr_bytes:
-            time.sleep(0.3)
-            atr_bytes = conn.getATR()
-            logger.info(f"ATR bytes (retry): {atr_bytes}")
-
-        atr_hex = " ".join(f"{b:02X}" for b in atr_bytes) if atr_bytes else "N/A"
+        # 更新 RuntimeContext
+        ctx.connect(request.reader, atr_bytes)
 
         logger.info(f"Connected to reader: {request.reader}, ATR: {atr_hex}")
         return ConnectResponse(reader=request.reader, connected=True, atr=atr_hex)
@@ -170,21 +172,22 @@ async def disconnect_reader(request: ConnectRequest) -> ConnectResponse:
 
     Returns:
         ConnectResponse with connection status.
-
-    Raises:
-        HTTPException: If reader not found or not connected.
     """
     try:
-        if request.reader not in _reader_connections:
+        from agents.tools.builtin import get_runtime_context
+
+        ctx = get_runtime_context()
+        if ctx is None or not ctx.connected:
             return ConnectResponse(reader=request.reader, connected=False)
 
-        # 断开连接
-        conn = _reader_connections.pop(request.reader)
-        try:
-            conn.disconnect()
-        except Exception:
-            pass  # 忽略断开时的异常
+        client = ctx.pcsc_client
+        if client:
+            try:
+                client.disconnect()
+            except Exception:
+                pass
 
+        ctx.disconnect()
         logger.info(f"Disconnected from reader: {request.reader}")
         return ConnectResponse(reader=request.reader, connected=False)
     except HTTPException:
@@ -211,30 +214,21 @@ async def send_apdu(request: ApduRequest) -> ApduResponse:
     import time
 
     try:
-        # 优先使用已建立的连接
-        if request.reader in _reader_connections:
-            conn = _reader_connections[request.reader]
-        else:
-            # 如果没有连接，查找读卡器并临时连接
-            from smartcard.System import readers
-            available_readers = readers()
-            reader = next((r for r in available_readers if r.name == request.reader), None)
-            if not reader:
-                raise HTTPException(status_code=404, detail=f"Reader '{request.reader}' not found")
-            conn = reader.createConnection()
-            conn.connect()
+        from agents.tools.builtin import get_runtime_context
 
-        # 解析 APDU
-        cleaned = request.apdu.replace(" ", "")
-        apdu_bytes = bytes.fromhex(cleaned)
+        ctx = get_runtime_context()
+        if ctx is None:
+            raise HTTPException(status_code=500, detail="Runtime context not initialized")
 
-        # 发送命令
+        if not ctx.connected:
+            raise HTTPException(status_code=400, detail="Not connected to card")
+
+        # 通过 RuntimeContext 发送 APDU
         start_time = time.time()
-        response, sw1, sw2 = conn.transmit(list(apdu_bytes))
+        response = ctx.send_apdu(request.apdu, check_sw=False)
         duration = int((time.time() - start_time) * 1000)
 
-        # 格式化响应: 数据 + SW1 SW2
-        response_hex = " ".join(f"{b:02X}" for b in response) + f" {sw1:02X} {sw2:02X}"
+        response_hex = response.sw
 
         logger.info(f"APDU sent to {request.reader}, duration: {duration}ms")
         return ApduResponse(

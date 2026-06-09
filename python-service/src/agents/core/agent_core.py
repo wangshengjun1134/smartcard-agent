@@ -144,9 +144,18 @@ class AgentCore:
                     logger.info(f"[AgentCore] Turn {turn_counter}: {len(tool_calls)} tool call(s)")
 
                     # Execute tools
-                    tool_result_messages = await self._process_tool_calls(
+                    tool_result_messages, _ = await self._process_tool_calls(
                         tool_calls, tools, cancel_signal
                     )
+
+                    # If no valid tool calls were processed, treat as normal completion
+                    if not tool_result_messages:
+                        logger.info(f"[AgentCore] Turn {turn_counter}: Empty tool calls, completing")
+                        if response_text and response_text.strip():
+                            final_text = response_text.strip()
+                            await emit_content(self._event_queue, final_text)
+                        break
+
                     messages.extend(tool_result_messages)
 
                     # Continue the loop
@@ -192,18 +201,16 @@ class AgentCore:
         tool_calls: List[Dict[str, Any]],
         tools: List[Dict[str, Any]],
         cancel_signal: Optional[asyncio.Event] = None,
-    ) -> List[Message]:
+    ) -> tuple[List[Message], Optional[str]]:
         """Process a list of tool calls.
 
-        Validates each call, executes tools, collects results, and emits events.
-
         Args:
-            tool_calls: Tool calls from the model (LangChain format).
+            tool_calls: Tool calls from the model.
             tools: Available tool declarations.
             cancel_signal: Optional cancel signal.
 
         Returns:
-            List of tool result messages to append to the conversation.
+            Tuple of (tool result messages, None).
         """
         tool_result_parts = []
 
@@ -211,6 +218,11 @@ class AgentCore:
             tool_name = tc.get("name", "")
             tool_args = tc.get("args", {})
             tool_id = tc.get("id", tool_name)
+
+            # Skip empty tool names — treat as normal completion
+            if not tool_name or not tool_name.strip():
+                logger.warning(f"[AgentCore] Received empty tool name, ignoring: {tc}")
+                continue
 
             logger.info(f"[AgentCore] Processing tool call: {tool_name}({tool_args})")
 
@@ -286,7 +298,9 @@ class AgentCore:
                 })
 
         # Build tool result message
-        return [build_tool_result_message(tool_result_parts)]
+        if not tool_result_parts:
+            return [], None
+        return [build_tool_result_message(tool_result_parts)], None
 
     def _convert_messages_to_llm_format(self, messages: List[Message]) -> List[Dict[str, Any]]:
         """Convert internal Message objects to LLM format."""
