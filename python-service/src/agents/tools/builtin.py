@@ -13,6 +13,7 @@ TODO: RAG tool integration
 
 import asyncio
 import logging
+import time
 from typing import Dict, Any, Optional
 
 from agents.core.tool_scheduler import ToolScheduler, ToolDefinition, ToolResult
@@ -183,6 +184,23 @@ def _build_skill_context(skill) -> Any:
 def _register_utility_tools(scheduler: ToolScheduler) -> None:
     """Register utility tools."""
 
+    # send_apdu tool — for raw APDU execution
+    scheduler.register(ToolDefinition(
+        name="send_apdu",
+        description="Send a raw APDU command to the smart card. Use this to execute low-level instructions. Requires connection.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "apdu": {
+                    "type": "string",
+                    "description": "APDU command as hex string (e.g., '00 A4 00 0C 02 3F 00').",
+                },
+            },
+            "required": ["apdu"],
+        },
+        handler=_send_apdu_handler,
+    ))
+
     # ask_user tool — for when the agent needs clarification
     scheduler.register(ToolDefinition(
         name="ask_user",
@@ -199,6 +217,36 @@ def _register_utility_tools(scheduler: ToolScheduler) -> None:
         },
         handler=_ask_user_handler,
     ))
+
+
+async def _send_apdu_handler(**kwargs) -> ToolResult:
+    """Send APDU handler."""
+    ctx = get_runtime_context()
+    if not ctx:
+        return ToolResult(success=False, error="Runtime context not initialized")
+    if not ctx.connected:
+        return ToolResult(success=False, error="Not connected to card. Please connect first.")
+
+    apdu_hex = kwargs.get("apdu", "").strip()
+    if not apdu_hex:
+        return ToolResult(success=False, error="APDU command is missing.")
+
+    try:
+        start_time = time.time()
+        # check_sw=False allows LLM to see the status word even on error
+        resp = ctx.send_apdu(apdu_hex, check_sw=False)
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        return ToolResult(
+            success=True,
+            data={
+                "response_data": resp.data.hex().upper() if resp.data else "",
+                "sw": resp.sw,
+                "duration_ms": duration_ms,
+            }
+        )
+    except Exception as e:
+        return ToolResult(success=False, error=str(e))
 
 
 async def _ask_user_handler(**kwargs) -> ToolResult:
