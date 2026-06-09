@@ -15,7 +15,7 @@ import uuid
 from typing import Dict, Any, Optional, AsyncGenerator
 
 from agents.core.agent_core import AgentCore, AgentCoreConfig, ReasoningLoopResult
-from agents.core.message import build_user_message, build_system_message
+from agents.core.message import build_user_message, build_assistant_message, build_system_message
 from agents.core.tool_scheduler import ToolScheduler
 from agents.tools.builtin import register_builtin_tools
 from agents.core.events import emit_thinking, emit_content
@@ -86,6 +86,25 @@ async def run_agent_core(
     # Create agent with tools
     agent = create_agent_core(event_queue)
 
+    # Load conversation history if session_id is provided
+    history_messages = []
+    if session_id:
+        try:
+            from api.session import get_session_messages
+            history = get_session_messages(session_id)
+            # Take last N messages (exclude system messages, limit to avoid token overflow)
+            MAX_HISTORY_MESSAGES = 10
+            recent_history = history[-MAX_HISTORY_MESSAGES:] if len(history) > MAX_HISTORY_MESSAGES else history
+            for msg in recent_history:
+                if msg.role == "user":
+                    history_messages.append({"role": "user", "content": msg.content})
+                elif msg.role == "assistant":
+                    # Assistant message: use content (final answer), not thinking
+                    history_messages.append({"role": "assistant", "content": msg.content})
+            logger.info(f"[AgentCore] Loaded {len(history_messages)} history messages from session {session_id}")
+        except Exception as e:
+            logger.warning(f"[AgentCore] Failed to load history: {e}")
+
     # Build card status context
     card_context = ""
     try:
@@ -96,11 +115,18 @@ async def run_agent_core(
     except Exception:
         pass
 
-    # Build initial messages
+    # Build initial messages: system + history + current user input
     messages = [
         build_system_message(SYSTEM_PROMPT + card_context),
-        build_user_message(user_input),
     ]
+    # Add conversation history (user/assistant exchanges)
+    for hist_msg in history_messages:
+        if hist_msg["role"] == "user":
+            messages.append(build_user_message(hist_msg["content"]))
+        elif hist_msg["role"] == "assistant":
+            messages.append(build_assistant_message(hist_msg["content"]))
+    # Add current user input
+    messages.append(build_user_message(user_input))
 
     # Get tool declarations
     tools = agent.scheduler.get_tool_declarations()
