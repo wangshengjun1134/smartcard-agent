@@ -165,6 +165,12 @@ export function useSessions() {
   // ========== Session Operations ==========
 
   const createSession = useCallback(async (groupId?: string): Promise<Session> => {
+    // 检查当前会话是否为空会话(没有消息),如果是则直接返回当前会话
+    if (currentSession && currentSession.messages.length === 0) {
+      return currentSession;
+    }
+
+    // 当前会话不为空,创建新会话
     const data = await apiFetch<SessionResponse>(
       API_CONFIG.endpoints.session.create,
       {
@@ -177,7 +183,7 @@ export function useSessions() {
     setSessions(prev => [session, ...prev]);
     setCurrentSessionId(session.id);
     return session;
-  }, []);
+  }, [currentSession]);
 
   const switchSession = useCallback((id: string) => {
     setCurrentSessionId(id);
