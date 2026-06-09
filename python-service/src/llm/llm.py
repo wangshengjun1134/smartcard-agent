@@ -4,6 +4,7 @@ from typing import Optional
 
 from langchain_openai import ChatOpenAI
 from langchain_core.callbacks import BaseCallbackHandler
+from openai import AsyncOpenAI
 
 from .config import LLMConfig
 from config.logging import get_logger
@@ -103,4 +104,39 @@ def get_llm(
         request_timeout=timeout,
         max_retries=2,
         callbacks=callbacks,
+    )
+
+
+def get_openai_client(
+    config: Optional[LLMConfig] = None,
+    timeout: float = 60.0,
+) -> AsyncOpenAI:
+    """Get OpenAI async client for direct API access.
+
+    Use this for streaming calls that need access to raw response fields
+    (like reasoning_content) that LangChain doesn't expose.
+
+    Args:
+        config: LLM configuration. If None, uses config from database.
+        timeout: Request timeout in seconds.
+
+    Returns:
+        AsyncOpenAI client instance.
+
+    Raises:
+        LLMConfigError: If API key is not configured.
+    """
+    if config is None:
+        config = LLMConfig.get_config()
+
+    if not config.openai_api_key or len(config.openai_api_key.strip()) == 0:
+        raise LLMConfigError(
+            "LLM API Key 未配置。请在设置中配置 API Key。"
+        )
+
+    return AsyncOpenAI(
+        api_key=config.openai_api_key,
+        base_url=config.openai_api_base,
+        timeout=timeout,
+        max_retries=2,
     )

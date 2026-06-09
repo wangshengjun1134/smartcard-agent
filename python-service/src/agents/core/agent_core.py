@@ -16,10 +16,11 @@ import json
 import logging
 from typing import Dict, Any, List, Optional, Callable, Awaitable
 from dataclasses import dataclass, field
+from openai import AsyncOpenAI
 
-from llm.llm import get_llm, LLMConfigError
+from llm.llm import get_openai_client, LLMConfig, LLMConfigError
 from agents.core.tool_scheduler import ToolScheduler, ToolCall, ToolResult
-from agents.core.message import Message, build_user_message, build_assistant_message, build_tool_result_message
+from agents.core.message import Message, build_user_message, build_assistant_message, build_tool_result_messages
 from agents.core.events import emit_thinking, emit_thinking_chunk, emit_content, emit_tool_call, emit_tool_result
 
 logger = logging.getLogger(__name__)
@@ -104,8 +105,9 @@ class AgentCore:
             await emit_thinking(self._event_queue, f"🔄 第 {turn_counter} 轮推理...")
 
             try:
-                # Call LLM with streaming
-                llm = get_llm(temperature=self.config.model_temperature)
+                # Get OpenAI client for streaming (direct access to reasoning_content)
+                client = get_openai_client()
+                config = LLMConfig.get_config()
 
                 # Build messages for LLM
                 llm_messages = self._convert_messages_to_llm_format(messages)
@@ -116,55 +118,114 @@ class AgentCore:
                         {"role": "system", "content": self.config.system_prompt}
                     ] + llm_messages
 
-                # Call LLM with tool support
+                # Stream response with OpenAI SDK
+                # Use streaming to capture reasoning_content for UI display,
+                # with timeout protection - if stream takes too long, fallback to non-streaming
                 response_text = ""
+                has_tool_calls_in_stream = False
+                tool_names_seen = set()
+                stream_timeout_seconds = 60  # Timeout for streaming response
+
+                try:
+                    stream = await client.chat.completions.create(
+                        model=config.openai_model,
+                        messages=llm_messages,
+                        tools=tools,
+                        temperature=self.config.model_temperature,
+                        stream=True,
+                    )
+
+                    async with asyncio.timeout(stream_timeout_seconds):
+                        async for chunk in stream:
+                            if not chunk.choices:
+                                continue
+
+                            delta = chunk.choices[0].delta
+
+                            # Stream reasoning_content (thinking process) to thinking_chunk
+                            if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
+                                await emit_thinking_chunk(self._event_queue, delta.reasoning_content)
+
+                            # Stream content (final answer) - accumulate but don't emit yet
+                            if delta.content:
+                                response_text += delta.content
+
+                            # Detect tool calls presence
+                            if delta.tool_calls:
+                                has_tool_calls_in_stream = True
+                                for tc in delta.tool_calls:
+                                    if tc.function and tc.function.name:
+                                        tool_names_seen.add(tc.function.name)
+                                        logger.info(f"[AgentCore] Tool detected in stream: {tc.function.name}")
+
+                except asyncio.TimeoutError:
+                    logger.warning(f"[AgentCore] Turn {turn_counter}: Stream timeout after {stream_timeout_seconds}s, forcing completion")
+                    await emit_thinking(self._event_queue, f"⏱ 推理超时，正在获取最终结果...")
+                    # Fallback to non-streaming to get the final state
+                    has_tool_calls_in_stream = True  # Force non-streaming check
+
+                # If tool calls were detected in stream, use non-streaming to get complete args
                 tool_calls = []
-                has_tool_calls_hint = False
+                if has_tool_calls_in_stream:
+                    logger.info(f"[AgentCore] Tools detected in stream: {tool_names_seen}, fetching complete tool_calls via non-streaming...")
 
-                # Use LangChain's streaming for thinking output
-                llm_with_tools = llm.bind_tools(self._convert_tools_for_langchain(tools))
+                    # Non-streaming request to get complete tool_calls with arguments
+                    complete_response = await client.chat.completions.create(
+                        model=config.openai_model,
+                        messages=llm_messages,
+                        tools=tools,
+                        temperature=self.config.model_temperature,
+                        stream=False,
+                    )
 
-                accumulated_content = ""
-                async for chunk in llm_with_tools.astream(llm_messages):
-                    # Handle streaming chunks - only emit to thinking_chunk (reasoning)
-                    chunk_content = chunk.content if hasattr(chunk, 'content') and chunk.content else ""
-                    if chunk_content:
-                        accumulated_content += chunk_content
-                        await emit_thinking_chunk(self._event_queue, chunk_content)
+                    if complete_response.choices and complete_response.choices[0].message.tool_calls:
+                        for tc in complete_response.choices[0].message.tool_calls:
+                            # Parse args JSON
+                            args = {}
+                            if tc.function.arguments:
+                                try:
+                                    args = json.loads(tc.function.arguments)
+                                    logger.info(f"[AgentCore] Tool call from non-streaming: {tc.function.name}({args})")
+                                except json.JSONDecodeError:
+                                    logger.warning(f"[AgentCore] Failed to parse tool args: {tc.function.arguments}")
+                                    args = {"raw_args": tc.function.arguments}
 
-                    # Detect tool calls hint (name appears but args may be empty in streaming)
-                    if hasattr(chunk, 'tool_calls') and chunk.tool_calls:
-                        for tc in chunk.tool_calls:
-                            tc_name = tc.get('name', '') if isinstance(tc, dict) else getattr(tc, 'name', '')
-                            if tc_name:
-                                has_tool_calls_hint = True
-                                logger.debug(f"[AgentCore] Tool call hint detected: {tc_name}")
+                            tool_calls.append({
+                                "id": tc.id,
+                                "name": tc.function.name,
+                                "args": args,
+                                "type": "function",
+                            })
 
-                # If tool calls were hinted, use non-streaming to get complete args
-                if has_tool_calls_hint:
-                    logger.info(f"[AgentCore] Tool call detected, using invoke for complete args")
-                    result = await llm_with_tools.ainvoke(llm_messages)
-                    if result.tool_calls:
-                        for tc in result.tool_calls:
-                            tc_dict = tc if isinstance(tc, dict) else {
-                                "name": getattr(tc, 'name', ''),
-                                "args": getattr(tc, 'args', {}),
-                                "id": getattr(tc, 'id', ''),
-                                "type": "tool_call"
-                            }
-                            tool_calls.append(tc_dict)
-                            logger.info(f"[AgentCore] Complete tool call: {tc_dict['name']}({tc_dict['args']})")
-                    # Tool call scenario: don't set response_text here
-                    # Final answer will be generated after tool results are processed
+                    # Also capture any final content from non-streaming response
+                    if complete_response.choices and complete_response.choices[0].message.content:
+                        response_text = complete_response.choices[0].message.content
 
-                # If no tool calls, this is the final answer
-                # Set response_text but don't emit yet - will emit in the else branch below
-                if not tool_calls and accumulated_content:
-                    response_text = accumulated_content
+                    logger.info(f"[AgentCore] Collected {len(tool_calls)} tool call(s) via non-streaming")
 
                 # If we have tool calls, process them
                 if tool_calls:
                     logger.info(f"[AgentCore] Turn {turn_counter}: {len(tool_calls)} tool call(s)")
+
+                    # Build OpenAI-format tool_calls for assistant message
+                    openai_tool_calls = [
+                        {
+                            "id": tc["id"],
+                            "type": "function",
+                            "function": {
+                                "name": tc["name"],
+                                "arguments": json.dumps(tc["args"]),
+                            }
+                        }
+                        for tc in tool_calls
+                    ]
+
+                    # Add assistant message with tool_calls to conversation history
+                    # OpenAI API requires this before tool result messages
+                    messages.append(build_assistant_message(
+                        content=response_text,
+                        tool_calls=openai_tool_calls,
+                    ))
 
                     # Execute tools
                     tool_result_messages, _ = await self._process_tool_calls(
@@ -181,21 +242,40 @@ class AgentCore:
 
                     messages.extend(tool_result_messages)
 
+                    # Add a hint for the model to generate final answer
+                    # This helps reasoning models understand they should output content now
+                    messages.append(build_user_message(
+                        "根据上述工具执行结果，请生成最终回复给用户。"
+                    ))
+
                     # Continue the loop
                     continue
                 else:
                     # No tool calls — treat this as the model's final answer
                     if response_text and response_text.strip():
                         final_text = response_text.strip()
+                        logger.info(f"[AgentCore] Turn {turn_counter}: response_text={response_text[:200]}...")
                         await emit_content(self._event_queue, final_text)
                         logger.info(f"[AgentCore] Turn {turn_counter}: Normal completion")
                         break
                     else:
-                        # Nudge the model to finalize
-                        messages.append(build_user_message(
-                            "Please provide the final result now and stop calling tools."
-                        ))
-                        continue
+                        # No content and no tool calls — check if we have tool results from previous turns
+                        # This means the model analyzed the results but didn't output a final text
+                        # In this case, we should end the loop rather than continue forever
+                        has_tool_results = any(msg.role == "tool" for msg in messages)
+                        if has_tool_results:
+                            # Model has processed tool results but didn't generate text
+                            # Likely in reasoning mode — end gracefully
+                            logger.info(f"[AgentCore] Turn {turn_counter}: No content after tool results, ending")
+                            final_text = "处理完成，请查看上方工具执行结果。"
+                            await emit_content(self._event_queue, final_text)
+                            break
+                        else:
+                            # First turn with no response — nudge the model
+                            messages.append(build_user_message(
+                                "Please provide a response."
+                            ))
+                            continue
 
             except LLMConfigError as e:
                 logger.error(f"[AgentCore] LLM not configured: {e}")
@@ -320,10 +400,10 @@ class AgentCore:
                     "status": "error",
                 })
 
-        # Build tool result message
+        # Build tool result messages (one per tool call)
         if not tool_result_parts:
             return [], None
-        return [build_tool_result_message(tool_result_parts)], None
+        return build_tool_result_messages(tool_result_parts), None
 
     def _convert_messages_to_llm_format(self, messages: List[Message]) -> List[Dict[str, Any]]:
         """Convert internal Message objects to LLM format."""
@@ -343,10 +423,3 @@ class AgentCore:
                     "content": msg.content,
                 })
         return result
-
-    def _convert_tools_for_langchain(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Convert tool declarations to LangChain tool format.
-
-        Tools are already in OpenAI function calling format, so just pass through.
-        """
-        return tools

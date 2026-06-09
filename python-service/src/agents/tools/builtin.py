@@ -184,19 +184,24 @@ def _build_skill_context(skill) -> Any:
 def _register_utility_tools(scheduler: ToolScheduler) -> None:
     """Register utility tools."""
 
-    # send_apdu tool — for raw APDU execution
+    # send_apdu tool — for raw APDU execution (supports single or multiple APDUs)
     scheduler.register(ToolDefinition(
         name="send_apdu",
-        description="Send a raw APDU command to the smart card. Use this to execute low-level instructions. You MUST pass the hex string via the 'apdu' parameter. Example: {\"apdu\": \"00A4000C023F00\"}",
+        description="Send APDU commands to the smart card. Supports single APDU ('apdu' string) or multiple APDUs ('apdus' array). IMPORTANT: Use 'apdus' array ONLY when subsequent APDUs do NOT depend on previous results. For example, SELECT MF → SELECT EF_IMSI → READ BINARY can be sent together because all APDUs are predetermined. But if you need to parse response data before constructing the next APDU, use single 'apdu' calls. Example: {\"apdus\": [\"00A4000C023F00\", \"00A4000C026F07\", \"00B0000009\"]}",
         parameters={
             "type": "object",
             "properties": {
                 "apdu": {
                     "type": "string",
-                    "description": "REQUIRED: The APDU command as a hex string (e.g., '00 A4 00 0C 02 3F 00'). Do not use other keys.",
+                    "description": "Single APDU command as hex string. Use this when next APDU depends on this result.",
+                },
+                "apdus": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Array of predetermined APDUs to execute sequentially. Use ONLY when all APDUs can be determined upfront without needing previous results.",
                 },
             },
-            "required": ["apdu"],
+            "required": [],
         },
         handler=_send_apdu_handler,
     ))
@@ -220,35 +225,106 @@ def _register_utility_tools(scheduler: ToolScheduler) -> None:
 
 
 async def _send_apdu_handler(**kwargs) -> ToolResult:
-    """Send APDU handler."""
+    """Send APDU handler - supports single APDU or multiple APDUs."""
     logger.info(f"[Tool:send_apdu] Received kwargs: {kwargs}")
 
     ctx = get_runtime_context()
     if not ctx:
-        return ToolResult(success=False, error="Runtime context not initialized")
-    if not ctx.connected:
-        return ToolResult(success=False, error="Not connected to card. Please connect first.")
-
-    apdu_hex = kwargs.get("apdu", "").strip()
-    if not apdu_hex:
-        return ToolResult(success=False, error="APDU command is missing.")
-
-    try:
-        start_time = time.time()
-        # check_sw=False allows LLM to see the status word even on error
-        resp = ctx.send_apdu(apdu_hex, check_sw=False)
-        duration_ms = int((time.time() - start_time) * 1000)
-
         return ToolResult(
-            success=True,
-            data={
-                "response_data": resp.data.hex().upper() if resp.data else "",
+            success=False,
+            error="Runtime context not initialized. This is a system setup issue — please restart the service.",
+        )
+    if not ctx.connected:
+        return ToolResult(
+            success=False,
+            error="⚠ 未连接到卡片。请先在前端选择读卡器并连接卡片，然后再发送 APDU 命令。这是用户需要操作的问题，AI 无法自动解决连接状态。",
+        )
+
+    # Get APDU(s) - support both single string and array
+    apdus = []
+    if "apdus" in kwargs and isinstance(kwargs["apdus"], list):
+        apdus = [a.strip() for a in kwargs["apdus"] if a and a.strip()]
+    elif "apdu" in kwargs and kwargs["apdu"]:
+        apdus = [kwargs["apdu"].strip()]
+
+    if not apdus:
+        return ToolResult(success=False, error="APDU command(s) missing. Provide 'apdu' (string) or 'apdus' (array).")
+
+    logger.info(f"[Tool:send_apdu] Executing {len(apdus)} APDU(s)")
+
+    # Execute all APDUs sequentially
+    results = []
+    total_start_time = time.time()
+    all_success = True
+
+    for i, apdu_hex in enumerate(apdus):
+        try:
+            start_time = time.time()
+            # check_sw=False allows LLM to see the status word even on error
+            resp = ctx.send_apdu(apdu_hex, check_sw=False)
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            result_entry = {
+                "index": i + 1,
+                "capdu": apdu_hex,
+                "rapdu": resp.data.hex().upper() if resp.data else "",
                 "sw": resp.sw,
                 "duration_ms": duration_ms,
             }
+
+            # Mark as error if SW is not 9000 (but continue execution)
+            if resp.sw != "9000":
+                result_entry["error"] = f"Status word: {resp.sw}"
+                all_success = False
+
+            results.append(result_entry)
+            logger.info(f"[Tool:send_apdu] APDU {i+1}: {apdu_hex} -> SW={resp.sw}")
+
+        except Exception as e:
+            results.append({
+                "index": i + 1,
+                "capdu": apdu_hex,
+                "error": str(e),
+                "sw": "N/A",
+            })
+            all_success = False
+            logger.error(f"[Tool:send_apdu] APDU {i+1} failed: {e}")
+
+    total_duration_ms = int((time.time() - total_start_time) * 1000)
+
+    # Format result for agent
+    if len(results) == 1:
+        # Single APDU - return simple format
+        r = results[0]
+        return ToolResult(
+            success=all_success,
+            data={
+                "capdu": r["capdu"],
+                "rapdu": r.get("rapdu", ""),
+                "sw": r["sw"],
+                "duration_ms": r.get("duration_ms", 0),
+                "results": results,
+                "total_duration_ms": total_duration_ms,
+            },
+            error=r.get("error") if not all_success else None,
         )
-    except Exception as e:
-        return ToolResult(success=False, error=str(e))
+    else:
+        # Multiple APDUs - return array format with summary
+        summary = "\n".join([
+            f"[{r['index']}] CAPDU: {r['capdu']} → RAPDU: {r.get('rapdu', 'N/A')}, SW: {r['sw']}"
+            for r in results
+        ])
+
+        return ToolResult(
+            success=all_success,
+            data={
+                "results": results,
+                "summary": summary,
+                "total_apdus": len(results),
+                "total_duration_ms": total_duration_ms,
+            },
+            error=None if all_success else "Some APDUs failed (see results for details)",
+        )
 
 
 async def _ask_user_handler(**kwargs) -> ToolResult:
