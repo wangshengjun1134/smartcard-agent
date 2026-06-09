@@ -537,7 +537,7 @@ export default function ApduConsole() {
             <div
               key={entry.id}
               className={`bg-white mb-2 p-2 px-3 rounded text-[13px] leading-relaxed font-mono ${
-                entry.isError ? 'border-l-4 border-red-500 text-red-600' : ''
+                entry.isError ? 'text-red-600' : ''
               }`}
             >
               <div className="flex justify-between items-start">
