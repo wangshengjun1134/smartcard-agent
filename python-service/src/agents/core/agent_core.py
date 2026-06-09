@@ -126,7 +126,7 @@ class AgentCore:
 
                 accumulated_content = ""
                 async for chunk in llm_with_tools.astream(llm_messages):
-                    # Handle streaming chunks
+                    # Handle streaming chunks - only emit to thinking_chunk (reasoning)
                     chunk_content = chunk.content if hasattr(chunk, 'content') and chunk.content else ""
                     if chunk_content:
                         accumulated_content += chunk_content
@@ -154,11 +154,11 @@ class AgentCore:
                             }
                             tool_calls.append(tc_dict)
                             logger.info(f"[AgentCore] Complete tool call: {tc_dict['name']}({tc_dict['args']})")
-                    # Use accumulated content as response_text if available
-                    if accumulated_content:
-                        response_text = accumulated_content
+                    # Tool call scenario: don't set response_text here
+                    # Final answer will be generated after tool results are processed
 
-                # If no tool calls, use accumulated content as response
+                # If no tool calls, this is the final answer
+                # Set response_text but don't emit yet - will emit in the else branch below
                 if not tool_calls and accumulated_content:
                     response_text = accumulated_content
 
