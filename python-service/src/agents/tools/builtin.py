@@ -187,13 +187,13 @@ def _register_utility_tools(scheduler: ToolScheduler) -> None:
     # send_apdu tool — for raw APDU execution
     scheduler.register(ToolDefinition(
         name="send_apdu",
-        description="Send a raw APDU command to the smart card. Use this to execute low-level instructions. Requires connection.",
+        description="Send a raw APDU command to the smart card. Use this to execute low-level instructions. You MUST pass the hex string via the 'apdu' parameter. Example: {\"apdu\": \"00A4000C023F00\"}",
         parameters={
             "type": "object",
             "properties": {
                 "apdu": {
                     "type": "string",
-                    "description": "APDU command as hex string (e.g., '00 A4 00 0C 02 3F 00').",
+                    "description": "REQUIRED: The APDU command as a hex string (e.g., '00 A4 00 0C 02 3F 00'). Do not use other keys.",
                 },
             },
             "required": ["apdu"],
@@ -221,6 +221,8 @@ def _register_utility_tools(scheduler: ToolScheduler) -> None:
 
 async def _send_apdu_handler(**kwargs) -> ToolResult:
     """Send APDU handler."""
+    logger.info(f"[Tool:send_apdu] Received kwargs: {kwargs}")
+
     ctx = get_runtime_context()
     if not ctx:
         return ToolResult(success=False, error="Runtime context not initialized")

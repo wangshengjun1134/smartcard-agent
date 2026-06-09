@@ -245,13 +245,17 @@ class PcscClient:
         """Send APDU command from hex string.
 
         Args:
-            apdu_hex: APDU as hex string (e.g., "00A40000023F00")
+            apdu_hex: APDU as hex string (e.g., "00A40000023F00" or "00 A4 00 00")
             check_sw: Whether to raise exception on error SW
 
         Returns:
             APDUResponse object.
         """
-        apdu_bytes = bytes.fromhex(apdu_hex)
+        # 兼容带空格的格式
+        cleaned = apdu_hex.replace(" ", "").replace("\n", "").strip()
+        if not cleaned:
+            raise ValueError("Empty APDU hex string")
+        apdu_bytes = bytes.fromhex(cleaned)
         return self.send_apdu(list(apdu_bytes), check_sw)
 
     @property
