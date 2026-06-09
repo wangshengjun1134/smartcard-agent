@@ -360,9 +360,21 @@ export default function ApduConsole() {
 
     const lines = trimmed.split('\n').filter((line) => line.trim());
     for (const line of lines) {
-      // 清理输入并格式化为空格分隔
+      // 清理输入
       const cleaned = line.trim().replace(/\s/g, '');
-      const formattedApdu = cleaned.match(/.{1,2}/g)?.join(' ') || cleaned;
+
+      // 校验 APDU 格式
+      if (!/^[0-9A-Fa-f]+$/.test(cleaned)) {
+        addEntry(line.trim(), '无效格式：仅允许十六进制字符 (0-9, A-F)', 0, true);
+        continue;
+      }
+      if (cleaned.length < 8 || cleaned.length % 2 !== 0) {
+        addEntry(line.trim(), `无效长度：需偶数长度且至少 4 字节 (当前 ${cleaned.length / 2} 字节)`, 0, true);
+        continue;
+      }
+
+      // 格式化为空格分隔
+      const formattedApdu = cleaned.match(/.{1,2}/g)?.join(' ').toUpperCase() || cleaned.toUpperCase();
 
       try {
         const response = await fetch(`${API_BASE}/smartcard/apdu`, {
