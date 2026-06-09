@@ -261,7 +261,8 @@ async def _send_apdu_handler(**kwargs) -> ToolResult:
         try:
             start_time = time.time()
             # check_sw=False allows LLM to see the status word even on error
-            resp = ctx.send_apdu(apdu_hex, check_sw=False)
+            # source="tool" identifies this as agent tool call for event broadcast
+            resp = ctx.send_apdu(apdu_hex, check_sw=False, source="tool")
             duration_ms = int((time.time() - start_time) * 1000)
 
             result_entry = {

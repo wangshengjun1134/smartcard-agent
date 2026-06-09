@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import files, rag, agent, session, config, smartcard
+from api import files, rag, agent, session, config, smartcard, events
 from utils.database import init_knowledge_database, init_session_database
 from config.logging import setup_logging
 
@@ -51,6 +51,12 @@ async def lifespan(app: FastAPI):
     client = PcscClient()
     ctx.attach_client(client)
     set_runtime_context(ctx)
+
+    # Register APDU event listener for WebSocket broadcasting
+    from api.events import emit_apdu_event
+    ctx.add_apdu_listener(emit_apdu_event)
+    print("APDU event listener registered (WebSocket broadcaster)")
+
     print("PCSC runtime context initialized")
 
     # Discover and register skill plugins
@@ -103,6 +109,9 @@ app.include_router(config.router, prefix="/api")
 
 # Include Smartcard API router
 app.include_router(smartcard.router, prefix="/api")
+
+# Include WebSocket events router (no prefix - endpoint is /ws/apdu)
+app.include_router(events.router)
 
 
 # Health check endpoint

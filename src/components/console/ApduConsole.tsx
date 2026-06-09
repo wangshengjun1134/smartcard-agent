@@ -7,6 +7,7 @@ interface ApduEntry {
   duration: number;
   timestamp: string;
   isError?: boolean;
+  source?: string; // 'agent' or 'console'
 }
 
 interface ReaderInfo {
@@ -19,6 +20,9 @@ const MAX_READER_NAME_LENGTH = 35;
 
 // API 基础 URL
 const API_BASE = 'http://127.0.0.1:8000/api';
+
+// WebSocket URL for APDU events
+const WS_URL = 'ws://127.0.0.1:8000/ws/apdu';
 
 // 智能截断读卡器名称
 function truncateReaderName(fullName: string): string {
@@ -189,6 +193,8 @@ export default function ApduConsole() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const consoleRef = useRef<HTMLDivElement>(null);
   const entryIdRef = useRef(0);
+  const wsRef = useRef<WebSocket | null>(null);
+  const wsIdRef = useRef(0); // 用于跟踪 WebSocket 实例
 
   // 获取读卡器列表
   const fetchReaders = useCallback(async () => {
@@ -213,6 +219,103 @@ export default function ApduConsole() {
   useEffect(() => {
     fetchReaders();
   }, [fetchReaders]);
+
+  // WebSocket 连接 - 接收 agent 发送的 APDU 事件
+  useEffect(() => {
+    const currentWsId = ++wsIdRef.current; // 每个 effect 实例有唯一 ID
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connectWebSocket = () => {
+      // 检查是否仍是当前 effect 实例
+      if (wsIdRef.current !== currentWsId) return;
+
+      try {
+        const ws = new WebSocket(WS_URL);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          if (wsIdRef.current === currentWsId) {
+            console.log('[WS] Connected to APDU event stream');
+          }
+        };
+
+        ws.onmessage = (event) => {
+          if (wsIdRef.current !== currentWsId) return;
+          try {
+            const message = JSON.parse(event.data);
+            // 监听来自 skill 或 tool 的 APDU 事件（不包括 console 自己发送的）
+            if (message.type === 'apdu_event' && (message.source === 'skill' || message.source === 'tool')) {
+              // 收到 agent 发送的 APDU 事件，添加到控制台
+              const { capdu, rapdu, sw, duration_ms, error } = message.data;
+              const respDisplay = error
+                ? `${rapdu} SW: ${sw} (${error})`
+                : rapdu
+                  ? `${rapdu} SW: ${sw}`
+                  : `SW: ${sw}`;
+
+              // 直接更新 entries state
+              const newEntry: ApduEntry = {
+                id: entryIdRef.current++,
+                send: capdu,
+                resp: respDisplay,
+                duration: duration_ms,
+                timestamp: getCurrentTime(),
+                isError: !!error,
+                source: message.source, // 'skill' 或 'tool'
+              };
+              setEntries((prev) => {
+                const updated = [...prev, newEntry];
+                return updated.slice(-MAX_ENTRIES);
+              });
+            }
+          } catch (e) {
+            // Ignore parse errors (ping/pong messages)
+          }
+        };
+
+        ws.onerror = (error) => {
+          if (wsIdRef.current === currentWsId) {
+            console.error('[WS] Error:', error);
+          }
+        };
+
+        ws.onclose = () => {
+          if (wsIdRef.current === currentWsId) {
+            console.log('[WS] Disconnected, reconnecting in 3s...');
+            wsRef.current = null;
+            // 自动重连
+            reconnectTimer = setTimeout(connectWebSocket, 3000);
+          }
+        };
+      } catch (e) {
+        if (wsIdRef.current === currentWsId) {
+          console.error('[WS] Connection failed:', e);
+          // 重试
+          reconnectTimer = setTimeout(connectWebSocket, 3000);
+        }
+      }
+    };
+
+    // 延迟连接，避免 React StrictMode 第一次 unmount 关闭连接
+    const initTimer = setTimeout(connectWebSocket, 100);
+
+    // Cleanup on unmount - 延迟清理，给下一个 effect 实例机会接管
+    return () => {
+      clearTimeout(initTimer);
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
+      // 延迟关闭 WebSocket，如果是 StrictMode double-invoke，
+      // 下一个 effect 实例会在 100ms 内接管 wsRef
+      setTimeout(() => {
+        // 只有当前 WebSocket ID 匹配时才关闭
+        if (wsRef.current && wsIdRef.current === currentWsId) {
+          wsRef.current.close();
+          wsRef.current = null;
+        }
+      }, 200);
+    };
+  }, []);
 
   // 新条目添加时自动滚动到底部
   useEffect(() => {
@@ -274,7 +377,7 @@ export default function ApduConsole() {
   const [isConnecting, setIsConnecting] = useState(false);
 
   const addEntry = useCallback(
-    (sendApdu: string, respApdu: string, duration: number, isError = false) => {
+    (sendApdu: string, respApdu: string, duration: number, isError = false, source: string = 'console') => {
       const newEntry: ApduEntry = {
         id: entryIdRef.current++,
         send: sendApdu,
@@ -282,6 +385,7 @@ export default function ApduConsole() {
         duration,
         timestamp: getCurrentTime(),
         isError,
+        source,
       };
       setEntries((prev) => {
         const updated = [...prev, newEntry];
@@ -535,16 +639,23 @@ export default function ApduConsole() {
           entries.map((entry) => (
             <div
               key={entry.id}
-              className={`bg-white mb-2 p-2 px-3 rounded text-[13px] leading-relaxed font-mono ${
-                entry.isError ? 'text-red-600' : ''
-              }`}
+              className={`mb-2 p-2 px-3 rounded text-[13px] leading-relaxed font-mono ${
+                (entry.source === 'skill' || entry.source === 'tool')
+                  ? 'bg-[#f0f7ff] border-l-2 border-[#4b6ef3]'
+                  : 'bg-white'
+              } ${entry.isError ? 'text-red-600' : ''}`}
             >
               <div className="flex justify-between items-start">
                 <div className="flex items-start flex-1">
-                  <span className={`font-bold w-4 mr-2 flex-shrink-0 ${entry.isError ? 'text-red-600' : 'text-[#fa8c16]'}`}>
+                  <span className={`font-bold w-4 mr-2 flex-shrink-0 ${entry.isError ? 'text-red-600' : (entry.source === 'skill' || entry.source === 'tool') ? 'text-[#4b6ef3]' : 'text-[#fa8c16]'}`}>
                     &gt;
                   </span>
                   <span className="break-all flex-1">{entry.send}</span>
+                  {(entry.source === 'skill' || entry.source === 'tool') && (
+                    <span className="text-[10px] text-[#4b6ef3] bg-[#e6f0ff] px-1.5 py-0.5 rounded ml-2 flex-shrink-0">
+                      {entry.source === 'tool' ? 'AI' : 'Skill'}
+                    </span>
+                  )}
                 </div>
                 <span className={`text-[11px] w-[100px] text-right ml-3 flex-shrink-0 ${entry.isError ? 'text-red-400' : 'text-[#999]'}`}>
                   {entry.timestamp}
