@@ -12,6 +12,7 @@ The loop terminates when:
 
 import asyncio
 import time
+import json
 import logging
 from typing import Dict, Any, List, Optional, Callable, Awaitable
 from dataclasses import dataclass, field
@@ -118,8 +119,9 @@ class AgentCore:
                 # Call LLM with tool support
                 response_text = ""
                 tool_calls = []
+                has_tool_calls_hint = False
 
-                # Use LangChain's streaming with tool support
+                # Use LangChain's streaming for thinking output
                 llm_with_tools = llm.bind_tools(self._convert_tools_for_langchain(tools))
 
                 accumulated_content = ""
@@ -130,12 +132,33 @@ class AgentCore:
                         accumulated_content += chunk_content
                         await emit_thinking_chunk(self._event_queue, chunk_content)
 
-                    # Collect tool calls from chunk (if any)
+                    # Detect tool calls hint (name appears but args may be empty in streaming)
                     if hasattr(chunk, 'tool_calls') and chunk.tool_calls:
                         for tc in chunk.tool_calls:
-                            tool_calls.append(tc)
+                            tc_name = tc.get('name', '') if isinstance(tc, dict) else getattr(tc, 'name', '')
+                            if tc_name:
+                                has_tool_calls_hint = True
+                                logger.debug(f"[AgentCore] Tool call hint detected: {tc_name}")
 
-                # If no tool calls from streaming, check the final response
+                # If tool calls were hinted, use non-streaming to get complete args
+                if has_tool_calls_hint:
+                    logger.info(f"[AgentCore] Tool call detected, using invoke for complete args")
+                    result = await llm_with_tools.ainvoke(llm_messages)
+                    if result.tool_calls:
+                        for tc in result.tool_calls:
+                            tc_dict = tc if isinstance(tc, dict) else {
+                                "name": getattr(tc, 'name', ''),
+                                "args": getattr(tc, 'args', {}),
+                                "id": getattr(tc, 'id', ''),
+                                "type": "tool_call"
+                            }
+                            tool_calls.append(tc_dict)
+                            logger.info(f"[AgentCore] Complete tool call: {tc_dict['name']}({tc_dict['args']})")
+                    # Use accumulated content as response_text if available
+                    if accumulated_content:
+                        response_text = accumulated_content
+
+                # If no tool calls, use accumulated content as response
                 if not tool_calls and accumulated_content:
                     response_text = accumulated_content
 
