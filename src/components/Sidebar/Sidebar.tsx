@@ -8,9 +8,6 @@ import { ConfirmDialog } from '../Dialog/ConfirmDialog';
 import { GroupSelectDialog } from '../Dialog/GroupSelectDialog';
 import { UserMenu } from '../Dialog/UserMenu';
 import { SettingsDialog } from '../Dialog/SettingsDialog';
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getCurrentWindow, currentMonitor } from '@tauri-apps/api/window';
-import { PhysicalPosition } from '@tauri-apps/api/window';
 
 export type ViewType = 'chat' | 'knowledge' | 'skills';
 
@@ -19,6 +16,8 @@ interface SidebarProps {
   groups: Group[];
   currentSessionId: string | null;
   currentView: ViewType;
+  showApduConsole: boolean; // APDU 控制台面板显示状态
+  onToggleApduConsole: () => void; // 切换 APDU 控制台面板
   onNewSession: (groupId?: string) => void;
   onSelectSession: (id: string) => void;
   onDeleteSession: (id: string) => void;
@@ -37,6 +36,8 @@ export function Sidebar({
   groups,
   currentSessionId,
   currentView,
+  showApduConsole,
+  onToggleApduConsole,
   onNewSession,
   onSelectSession,
   onDeleteSession,
@@ -55,69 +56,6 @@ export function Sidebar({
 
   // 对话框状态
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-
-  // 打开 APDU 控制台窗口
-  const openApduConsole = async () => {
-    try {
-      // 检查窗口是否已存在
-      const existingWindow = await WebviewWindow.getByLabel('apdu-console');
-      if (existingWindow) {
-        // 如果窗口已存在，聚焦它
-        await existingWindow.setFocus();
-        return;
-      }
-
-      // 获取主窗口
-      const mainWindow = getCurrentWindow();
-      const outerSize = await mainWindow.outerSize();
-      const innerSize = await mainWindow.innerSize();
-
-      // 获取当前显示器信息
-      const monitor = await currentMonitor();
-      const screenWidth = monitor?.size.width || 1920;
-      const screenHeight = monitor?.size.height || 1080;
-      const monitorX = monitor?.position.x || 0;
-      const monitorY = monitor?.position.y || 0;
-
-      // 控制台窗口宽度 = 主窗口宽度 - 侧边栏宽度（会话内容区域宽度，体现主次之分）
-      const sidebarWidth = 260;
-      const consoleWidth = outerSize.width - sidebarWidth;
-      const consoleHeight = outerSize.height;
-
-      // 计算总宽度（主窗口 + 控制台）
-      const totalWidth = outerSize.width + consoleWidth;
-
-      // 计算整体居中位置（左右居中），但主窗口不能超出屏幕左侧
-      const centerX = monitorX + screenWidth / 2;
-      const newMainX = Math.max(monitorX, Math.round(centerX - totalWidth / 2));
-
-      // 计算上下居中位置
-      const centerY = monitorY + screenHeight / 2;
-      const mainY = Math.round(centerY - consoleHeight / 2);
-
-      // 移动主窗口到左侧
-      await mainWindow.setPosition(new PhysicalPosition(newMainX, mainY));
-
-      // 创建控制台窗口，放置在主窗口右侧
-      const webview = new WebviewWindow('apdu-console', {
-        url: '/#apdu-console',
-        title: 'APDU 控制台',
-        width: consoleWidth,
-        height: consoleHeight,
-        x: newMainX + outerSize.width,
-        y: mainY,
-        resizable: true,
-        decorations: false,
-      });
-
-      // 监听窗口关闭事件
-      webview.once('destroyed', () => {
-        console.log('APDU console window closed');
-      });
-    } catch (error) {
-      console.error('Failed to open APDU console window:', error);
-    }
-  };
 
   // 菜单状态
   const [groupMenuState, setGroupMenuState] = useState<{
@@ -347,7 +285,12 @@ export function Sidebar({
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </button>
-          <button className="circle-btn w-[18px] h-[18px]" aria-label="控制台" onClick={openApduConsole}>
+          <button
+            className={`circle-btn w-[18px] h-[18px] ${showApduConsole ? 'bg-[#4b6ef3] text-white' : ''}`}
+            aria-label="控制台"
+            onClick={onToggleApduConsole}
+            title={showApduConsole ? '隐藏控制台' : '显示控制台'}
+          >
             <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 17l6-5-6-5M12 19h8" />
             </svg>

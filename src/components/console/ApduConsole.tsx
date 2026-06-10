@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { getApiUrl, getWebSocketUrl, API_CONFIG } from '../../config/api';
+import { getApiUrl, getWebSocketUrl } from '../../config/api';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 
 interface ApduEntry {
   id: number;
@@ -14,6 +15,10 @@ interface ApduEntry {
 interface ReaderInfo {
   name: string;
   connected: boolean;
+}
+
+interface ApduConsoleProps {
+  embedded?: boolean; // 嵌入模式（无标题栏）
 }
 
 const MAX_ENTRIES = 50;
@@ -90,20 +95,6 @@ const CloseIcon = () => (
   </svg>
 );
 
-const ReaderIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    className="w-3.5 h-3.5"
-  >
-    <rect x="2" y="6" width="20" height="12" rx="2" />
-    <line x1="6" y1="10" x2="6" y2="14" />
-    <line x1="10" y1="10" x2="10" y2="14" />
-  </svg>
-);
-
 const ChevronDownIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -161,31 +152,13 @@ const ConnectedIcon = () => (
   </svg>
 );
 
-const SendIcon = () => (
-  <svg
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-    strokeWidth="2"
-    className="w-3.5 h-3.5"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M5 10l7-7m0 0l7 7m-7-7v18"
-    />
-  </svg>
-);
-
-export default function ApduConsole() {
+export default function ApduConsole({ embedded = false }: ApduConsoleProps) {
   const [readers, setReaders] = useState<ReaderInfo[]>([]);
   const [selectedReader, setSelectedReader] = useState<string | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [entries, setEntries] = useState<ApduEntry[]>([]);
-  const [inputValue, setInputValue] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const consoleRef = useRef<HTMLDivElement>(null);
   const entryIdRef = useRef(0);
   const wsRef = useRef<WebSocket | null>(null);
@@ -319,29 +292,20 @@ export default function ApduConsole() {
     }
   }, [entries]);
 
-  // 窗口控制
+  // 窗口控制（仅独立窗口模式使用）
   const handleMinimize = useCallback(async () => {
-    if (window.__TAURI__?.webviewWindow) {
-      const appWindow =
-        window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
-      await appWindow.minimize();
-    }
+    const appWindow = getCurrentWebviewWindow();
+    await appWindow.minimize();
   }, []);
 
   const handleToggleMaximize = useCallback(async () => {
-    if (window.__TAURI__?.webviewWindow) {
-      const appWindow =
-        window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
-      await appWindow.toggleMaximize();
-    }
+    const appWindow = getCurrentWebviewWindow();
+    await appWindow.toggleMaximize();
   }, []);
 
   const handleClose = useCallback(async () => {
-    if (window.__TAURI__?.webviewWindow) {
-      const appWindow =
-        window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
-      await appWindow.close();
-    }
+    const appWindow = getCurrentWebviewWindow();
+    await appWindow.close();
   }, []);
 
   // 读卡器选择
@@ -438,115 +402,46 @@ export default function ApduConsole() {
     } finally {
       setIsConnecting(false);
     }
-  }, [selectedReader, isConnected]);
+  }, [selectedReader, isConnected, addEntry]);
 
-  // 输入处理
-  const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setInputValue(e.target.value);
-      if (textareaRef.current) {
-        textareaRef.current.style.height = '32px';
-        textareaRef.current.style.height =
-          Math.min(textareaRef.current.scrollHeight, 120) + 'px';
-      }
-    },
-    []
-  );
-
-  const handleSendApdu = useCallback(async () => {
-    const trimmed = inputValue.trim();
-    if (!trimmed) return;
-
-    const lines = trimmed.split('\n').filter((line) => line.trim());
-    for (const line of lines) {
-      // 清理输入
-      const cleaned = line.trim().replace(/\s/g, '');
-
-      // 校验 APDU 格式
-      if (!/^[0-9A-Fa-f]+$/.test(cleaned)) {
-        addEntry(line.trim(), '无效格式：仅允许十六进制字符 (0-9, A-F)', 0, true);
-        continue;
-      }
-      if (cleaned.length < 8 || cleaned.length % 2 !== 0) {
-        addEntry(line.trim(), `无效长度：需偶数长度且至少 4 字节 (当前 ${cleaned.length / 2} 字节)`, 0, true);
-        continue;
-      }
-
-      // 格式化为空格分隔
-      const formattedApdu = cleaned.match(/.{1,2}/g)?.join(' ').toUpperCase() || cleaned.toUpperCase();
-
-      try {
-        const response = await fetch(getApiUrl('/api/smartcard/apdu'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            reader: selectedReader || '',
-            apdu: formattedApdu,
-          }),
-        });
-        if (!response.ok) {
-          const error = await response.json();
-          addEntry(formattedApdu, error.detail || '发送失败', 0, true);
-          continue;
-        }
-        const data = await response.json();
-        addEntry(data.apdu, data.response, data.duration);
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : '网络错误';
-        addEntry(formattedApdu, errorMsg, 0, true);
-      }
-    }
-
-    setInputValue('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = '32px';
-    }
-  }, [inputValue, selectedReader, addEntry]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        handleSendApdu();
-      }
-    },
-    [handleSendApdu]
-  );
-
-  const hasInput = inputValue.trim().length > 0;
-  const currentReaderInfo = readers.find((r) => r.name === selectedReader);
+  // 嵌入模式下的容器样式
+  const containerClass = embedded
+    ? 'flex flex-col h-full bg-white text-[#1a1a1a] font-sans'
+    : 'flex flex-col h-screen bg-[#fafafa] text-[#1a1a1a] font-sans p-4';
 
   return (
-    <div className="flex flex-col h-screen bg-[#fafafa] text-[#1a1a1a] font-sans p-4">
-      {/* 标题栏 - 在容器外部 */}
-      <div
-        className="bg-[#fafafa] h-8 flex items-center justify-between flex-shrink-0 rounded-xl px-3 -mt-1"
-        data-tauri-drag-region
-      >
-        <div className="flex-1 flex items-center gap-2" data-tauri-drag-region />
-        <div className="flex items-center" data-tauri-drag-region>
-          <button
-            className="w-11.5 h-8 flex items-center justify-center cursor-pointer bg-transparent border-none transition-[background] duration-150 hover:bg-[#e5e5e5]"
-            onClick={handleMinimize}
-          >
-            <MinimizeIcon />
-          </button>
-          <button
-            className="w-11.5 h-8 flex items-center justify-center cursor-pointer bg-transparent border-none transition-[background] duration-150 hover:bg-[#e5e5e5]"
-            onClick={handleToggleMaximize}
-          >
-            <MaximizeIcon />
-          </button>
-          <button
-            className="w-11.5 h-8 flex items-center justify-center cursor-pointer bg-transparent border-none transition-[background] duration-150 hover:bg-[#e81123] hover:text-white"
-            onClick={handleClose}
-          >
-            <CloseIcon />
-          </button>
+    <div className={containerClass}>
+      {/* 标题栏 - 仅在独立窗口模式下显示 */}
+      {!embedded && (
+        <div
+          className="bg-[#fafafa] h-8 flex items-center justify-between flex-shrink-0 rounded-xl px-3 -mt-1"
+          data-tauri-drag-region
+        >
+          <div className="flex-1 flex items-center gap-2" data-tauri-drag-region />
+          <div className="flex items-center" data-tauri-drag-region>
+            <button
+              className="w-11.5 h-8 flex items-center justify-center cursor-pointer bg-transparent border-none transition-[background] duration-150 hover:bg-[#e5e5e5]"
+              onClick={handleMinimize}
+            >
+              <MinimizeIcon />
+            </button>
+            <button
+              className="w-11.5 h-8 flex items-center justify-center cursor-pointer bg-transparent border-none transition-[background] duration-150 hover:bg-[#e5e5e5]"
+              onClick={handleToggleMaximize}
+            >
+              <MaximizeIcon />
+            </button>
+            <button
+              className="w-11.5 h-8 flex items-center justify-center cursor-pointer bg-transparent border-none transition-[background] duration-150 hover:bg-[#e81123] hover:text-white"
+              onClick={handleClose}
+            >
+              <CloseIcon />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="flex-1 flex flex-col rounded-xl overflow-hidden bg-white shadow-sm">
+      <div className={`flex-1 flex flex-col overflow-hidden ${embedded ? '' : 'rounded-xl bg-white shadow-sm'}`}>
       {/* 头部 */}
       <div className="bg-white px-4 h-[45px] flex items-center justify-end gap-3 flex-shrink-0">
         {/* 读卡器选择 */}
@@ -670,34 +565,6 @@ export default function ApduConsole() {
             </div>
           ))
         )}
-      </div>
-
-      {/* 输入区域 */}
-      <div className="bg-white p-3 flex-shrink-0">
-        <div className="bg-[#fafafa] rounded-2xl p-3 pb-2">
-          <textarea
-            ref={textareaRef}
-            className="w-full text-[13px] font-mono bg-transparent border-none outline-none resize-none min-h-[32px] max-h-[120px] text-[#1a1a1a] placeholder:text-[#999]"
-            placeholder="输入 APDU 指令 (Enter 发送, Shift+Enter 换行)"
-            rows={1}
-            value={inputValue}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-          />
-          <div className="flex justify-end items-center mt-2">
-            <button
-              className={`w-7 h-7 rounded-full flex items-center justify-center border-none transition-[background] duration-150 cursor-pointer ${
-                hasInput
-                  ? 'bg-[#4b6ef3] cursor-pointer'
-                  : 'bg-[#ccc] cursor-not-allowed'
-              }`}
-              onClick={handleSendApdu}
-              disabled={!hasInput}
-            >
-              <SendIcon />
-            </button>
-          </div>
-        </div>
       </div>
       </div>
     </div>

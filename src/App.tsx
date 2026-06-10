@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSessions } from './hooks/useSessions';
 import { AppLayout } from './components/layout/AppLayout';
 import { Sidebar, ViewType } from './components/Sidebar/Sidebar';
@@ -11,26 +11,87 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { getApiUrl, API_CONFIG, DEFAULT_HEADERS } from './config/api';
 import iconImage from './images/icon.png';
 import ApduConsole from './components/console/ApduConsole';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { PhysicalSize } from '@tauri-apps/api/dpi';
 
 function App() {
   // 检查是否为 APDU 控制台窗口 - 同步检测避免空白闪烁
   const params = new URLSearchParams(window.location.search);
-  const isApduConsole = params.get('view') === 'apdu-console' || window.location.hash === '#apdu-console';
+  const isApduConsoleWindow = params.get('view') === 'apdu-console' || window.location.hash === '#apdu-console';
 
   // 调试日志
   console.log('[App] URL:', window.location.href);
   console.log('[App] hash:', window.location.hash);
   console.log('[App] search:', window.location.search);
-  console.log('[App] isApduConsole:', isApduConsole);
+  console.log('[App] isApduConsoleWindow:', isApduConsoleWindow);
 
-  // 如果是 APDU 控制台窗口，直接渲染
-  if (isApduConsole) {
-    console.log('[App] Rendering ApduConsole');
+  // 如果是 APDU 控制台窗口（独立窗口模式），直接渲染
+  if (isApduConsoleWindow) {
+    console.log('[App] Rendering ApduConsole (window mode)');
     return <ApduConsole />;
   }
 
   const [currentView, setCurrentView] = useState<ViewType>('chat');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showApduConsole, setShowApduConsole] = useState(false); // APDU 控制台面板显示状态
+  const originalWindowWidthRef = useRef<number | null>(null); // 记录原始窗口宽度
+  const [chatAreaFixedWidth, setChatAreaFixedWidth] = useState<number | null>(null); // 会话区域固定宽度（像素）
+  const [isMaximizedState, setIsMaximizedState] = useState(false); // 记录最大化状态
+  const [usedProportionalLayout, setUsedProportionalLayout] = useState(false); // 记录是否使用了比例布局
+
+  // 切换 APDU 控制台显示（带窗口大小调整）
+  const toggleApduConsole = async () => {
+    const appWindow = getCurrentWebviewWindow();
+    const currentSize = await appWindow.innerSize();
+    const isMaximized = await appWindow.isMaximized();
+
+    // 侧边栏宽度：展开时 260px，收起时 0px
+    const sidebarWidth = sidebarOpen ? 260 : 0;
+
+    // 获取屏幕可用宽度
+    const screenWidth = window.screen.availWidth;
+
+    if (!showApduConsole) {
+      // 显示控制台：
+      // 记录当前窗口宽度和最大化状态
+      originalWindowWidthRef.current = currentSize.width;
+      setIsMaximizedState(isMaximized);
+
+      // 计算会话区域宽度（像素）
+      const chatWidth = currentSize.width - sidebarWidth;
+
+      // 计算新窗口宽度（如果调整）
+      const newWidth = Math.round(sidebarWidth + chatWidth + chatWidth * 0.5);
+
+      // 判断是否需要使用比例布局（最大化或新宽度超出屏幕）
+      const needProportionalLayout = isMaximized || newWidth > screenWidth;
+
+      if (needProportionalLayout) {
+        // 无法调整窗口大小，使用比例布局
+        // 会话区域占 2/3，控制台占 1/3
+        const proportionalWidth = Math.round(chatWidth * 0.667);
+        setChatAreaFixedWidth(proportionalWidth);
+        setUsedProportionalLayout(true);
+      } else {
+        // 可以调整窗口大小
+        await appWindow.setSize(new PhysicalSize(newWidth, currentSize.height));
+        setChatAreaFixedWidth(chatWidth);
+        setUsedProportionalLayout(false);
+      }
+      setShowApduConsole(true);
+    } else if (originalWindowWidthRef.current !== null) {
+      // 隐藏控制台
+      if (!isMaximizedState && !usedProportionalLayout) {
+        // 非最大化且非比例布局：恢复原始窗口宽度
+        await appWindow.setSize(new PhysicalSize(originalWindowWidthRef.current, currentSize.height));
+      }
+      originalWindowWidthRef.current = null;
+      setIsMaximizedState(false);
+      setUsedProportionalLayout(false);
+      setChatAreaFixedWidth(null);
+      setShowApduConsole(false);
+    }
+  };
 
   const {
     sessions,
@@ -211,52 +272,76 @@ function App() {
     if (currentView === 'skills') {
       return <SkillsBase />;
     }
-    // 默认聊天视图
+
+    // Chat 视图 - 支持右侧 APDU 控制台面板
     const hasMessages = (currentSession?.messages?.length ?? 0) > 0;
 
-    return (
-      <div className="flex-1 flex flex-col min-h-0">
-        {/* 聊天顶部栏 */}
-        <ChatHeader
-          sidebarOpen={sidebarOpen}
-          onToggleSidebar={() => setSidebarOpen(prev => !prev)}
-        />
+    // 计算布局宽度
+    const chatAreaStyle = showApduConsole && chatAreaFixedWidth
+      ? { width: `${chatAreaFixedWidth}px` }
+      : {};
+    const consoleWidth = chatAreaFixedWidth ? Math.round(chatAreaFixedWidth * 0.5) : 0;
 
-        {/* 内容区域 */}
-        {hasMessages ? (
-          <>
-            {/* 消息列表容器 - 允许内部滚动 */}
-            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-              <MessageList
-                messages={currentSession?.messages || []}
-                isLoading={false}
-                hasSession={!!currentSessionId}
-              />
-            </div>
-            {/* 输入区域 - 底部固定 */}
-            <div className="flex flex-col items-center pb-3 shrink-0 border-t border-gray-100 dark:border-gray-800">
+    return (
+      <div className="flex-1 flex min-h-0">
+        {/* 主聊天区域 - 显示控制台时使用固定宽度，隐藏时占全宽 */}
+        <div
+          className={`flex flex-col min-h-0 ${showApduConsole ? '' : 'flex-1'}`}
+          style={chatAreaStyle}
+        >
+          {/* 聊天顶部栏 */}
+          <ChatHeader
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={() => setSidebarOpen(prev => !prev)}
+          />
+
+          {/* 内容区域 */}
+          {hasMessages ? (
+            <>
+              {/* 消息列表容器 - 允许内部滚动 */}
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                <MessageList
+                  messages={currentSession?.messages || []}
+                  isLoading={false}
+                  hasSession={!!currentSessionId}
+                />
+              </div>
+              {/* 输入区域 - 底部固定 */}
+              <div className="flex flex-col items-center pb-3 shrink-0">
+                <ChatInput
+                  onSend={handleSendMessage}
+                  disabled={false}
+                />
+              </div>
+            </>
+          ) : (
+            /* 无消息时 - 整体居中 */
+            <div className="flex-1 flex flex-col items-center justify-center">
+              {/* 欢迎图标 */}
+              <div className="mb-4">
+                <img src={iconImage} alt="SmartCardAgent" className="w-16 h-16" />
+              </div>
+              {/* 欢迎文字 */}
+              <div className="text-2xl text-[#1a1a1a] tracking-wide mb-8">
+                你好，我是SmartCardAgent
+              </div>
+              {/* 输入框 */}
               <ChatInput
                 onSend={handleSendMessage}
                 disabled={false}
               />
             </div>
-          </>
-        ) : (
-          /* 无消息时 - 整体居中 */
-          <div className="flex-1 flex flex-col items-center justify-center">
-            {/* 欢迎图标 */}
-            <div className="mb-4">
-              <img src={iconImage} alt="SmartCardAgent" className="w-16 h-16" />
-            </div>
-            {/* 欢迎文字 */}
-            <div className="text-2xl text-[#1a1a1a] tracking-wide mb-8">
-              你好，我是SmartCardAgent
-            </div>
-            {/* 输入框 */}
-            <ChatInput
-              onSend={handleSendMessage}
-              disabled={false}
-            />
+          )}
+        </div>
+
+        {/* APDU 控制台面板 - 仅在 Chat 视图且 showApduConsole 为 true 时显示 */}
+        {/* 控制台宽度为会话区域的 50%（固定像素宽度） */}
+        {showApduConsole && consoleWidth > 0 && (
+          <div
+            className="flex-shrink-0 min-h-0 border-l border-gray-200"
+            style={{ width: `${consoleWidth}px` }}
+          >
+            <ApduConsole embedded={true} />
           </div>
         )}
       </div>
@@ -274,6 +359,8 @@ function App() {
             groups={groups}
             currentSessionId={currentSessionId}
             currentView={currentView}
+            showApduConsole={showApduConsole}
+            onToggleApduConsole={toggleApduConsole}
             onNewSession={createSession}
             onSelectSession={switchSession}
             onDeleteSession={deleteSession}
