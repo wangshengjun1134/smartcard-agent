@@ -3,17 +3,24 @@
 /**
  * API Configuration
  * Centralized configuration for backend API endpoints
+ *
+ * Services:
+ * - Agent Service (port 8001): Agent chat, session, config, smartcard
+ * - RAG Service (port 8002): Files, RAG query
  */
 
-// API base URL - defaults to localhost for development
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// Service base URLs - can be overridden via environment variables
+const AGENT_BASE_URL = import.meta.env.VITE_AGENT_BASE_URL || 'http://localhost:8001';
+const RAG_BASE_URL = import.meta.env.VITE_RAG_BASE_URL || 'http://localhost:8002';
 
 /**
  * API endpoints configuration
  */
 export const API_CONFIG = {
-  baseUrl: API_BASE_URL,
+  agentBaseUrl: AGENT_BASE_URL,
+  ragBaseUrl: RAG_BASE_URL,
   endpoints: {
+    // RAG Service endpoints (port 8002)
     files: {
       tree: '/api/files/tree',
       upload: '/api/files/upload',
@@ -21,6 +28,12 @@ export const API_CONFIG = {
       createFolder: '/api/files/folder',
       move: '/api/files/move',
     },
+    rag: {
+      query: '/api/rag/query',
+      search: '/api/rag/search',
+      info: '/api/rag/info',
+    },
+    // Agent Service endpoints (port 8001)
     session: {
       list: '/api/session/list',
       create: '/api/session/create',
@@ -45,9 +58,28 @@ export const API_CONFIG = {
       status: '/api/agent/status',
       skills: '/api/agent/skills',
     },
+    smartcard: {
+      readers: '/api/smartcard/readers',
+      connect: '/api/smartcard/connect',
+      disconnect: '/api/smartcard/disconnect',
+    },
     health: '/health',
   },
 };
+
+/**
+ * Get base URL based on endpoint path
+ * @param path - API endpoint path
+ * @returns Base URL for the service
+ */
+function getBaseUrlForPath(path: string): string {
+  // RAG service handles files and rag endpoints
+  if (path.startsWith('/api/files') || path.startsWith('/api/rag')) {
+    return RAG_BASE_URL;
+  }
+  // Agent service handles all other endpoints
+  return AGENT_BASE_URL;
+}
 
 /**
  * Build full API URL for an endpoint
@@ -55,7 +87,16 @@ export const API_CONFIG = {
  * @returns Full URL
  */
 export function getApiUrl(endpoint: string): string {
-  return `${API_CONFIG.baseUrl}${endpoint}`;
+  const baseUrl = getBaseUrlForPath(endpoint);
+  return `${baseUrl}${endpoint}`;
+}
+
+/**
+ * Get WebSocket URL for APDU events
+ * @returns WebSocket URL
+ */
+export function getWebSocketUrl(): string {
+  return `${AGENT_BASE_URL.replace('http', 'ws')}/ws/apdu`;
 }
 
 /**
@@ -69,6 +110,6 @@ export const DEFAULT_HEADERS = {
  * File upload constraints
  */
 export const FILE_UPLOAD_CONSTRAINTS = {
-  maxFileSizeMB: 50, // Frontend limit (50MB)
+  maxFileSizeMB: 50,
   allowedExtensions: ['.pdf', '.doc', '.docx', '.md', '.markdown', '.txt', '.png', '.jpg', '.jpeg', '.gif', '.webp'],
 };

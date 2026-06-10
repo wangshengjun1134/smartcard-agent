@@ -1,1 +1,0 @@
-"""Smartcard Knowledge Base Service."""

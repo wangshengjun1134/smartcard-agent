@@ -1,1 +1,0 @@
-"""Utils module for smartcard knowledge base."""

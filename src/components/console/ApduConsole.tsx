@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { getApiUrl, getWebSocketUrl, API_CONFIG } from '../../config/api';
 
 interface ApduEntry {
   id: number;
@@ -17,12 +18,6 @@ interface ReaderInfo {
 
 const MAX_ENTRIES = 50;
 const MAX_READER_NAME_LENGTH = 35;
-
-// API 基础 URL
-const API_BASE = 'http://127.0.0.1:8000/api';
-
-// WebSocket URL for APDU events
-const WS_URL = 'ws://127.0.0.1:8000/ws/apdu';
 
 // 智能截断读卡器名称
 function truncateReaderName(fullName: string): string {
@@ -200,7 +195,7 @@ export default function ApduConsole() {
   const fetchReaders = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const response = await fetch(`${API_BASE}/smartcard/readers`);
+      const response = await fetch(getApiUrl('/api/smartcard/readers'));
       if (!response.ok) {
         throw new Error('Failed to fetch readers');
       }
@@ -230,7 +225,7 @@ export default function ApduConsole() {
       if (wsIdRef.current !== currentWsId) return;
 
       try {
-        const ws = new WebSocket(WS_URL);
+        const ws = new WebSocket(getWebSocketUrl());
         wsRef.current = ws;
 
         ws.onopen = () => {
@@ -405,7 +400,7 @@ export default function ApduConsole() {
     try {
       if (!isConnected) {
         // 连接读卡器
-        const response = await fetch(`${API_BASE}/smartcard/connect`, {
+        const response = await fetch(getApiUrl('/api/smartcard/connect'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ reader: selectedReader }),
@@ -424,7 +419,7 @@ export default function ApduConsole() {
         }
       } else {
         // 断开读卡器
-        const response = await fetch(`${API_BASE}/smartcard/disconnect`, {
+        const response = await fetch(getApiUrl('/api/smartcard/disconnect'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ reader: selectedReader }),
@@ -481,7 +476,7 @@ export default function ApduConsole() {
       const formattedApdu = cleaned.match(/.{1,2}/g)?.join(' ').toUpperCase() || cleaned.toUpperCase();
 
       try {
-        const response = await fetch(`${API_BASE}/smartcard/apdu`, {
+        const response = await fetch(getApiUrl('/api/smartcard/apdu'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

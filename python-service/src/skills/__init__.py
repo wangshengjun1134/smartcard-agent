@@ -1,1 +1,0 @@
-"""Skills module - BaseSkill and skill implementations."""
