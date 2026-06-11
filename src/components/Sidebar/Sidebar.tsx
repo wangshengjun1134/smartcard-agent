@@ -16,8 +16,6 @@ interface SidebarProps {
   groups: Group[];
   currentSessionId: string | null;
   currentView: ViewType;
-  showApduConsole: boolean; // APDU 控制台面板显示状态
-  onToggleApduConsole: () => void; // 切换 APDU 控制台面板
   onNewSession: (groupId?: string) => void;
   onSelectSession: (id: string) => void;
   onDeleteSession: (id: string) => void;
@@ -36,8 +34,6 @@ export function Sidebar({
   groups,
   currentSessionId,
   currentView,
-  showApduConsole,
-  onToggleApduConsole,
   onNewSession,
   onSelectSession,
   onDeleteSession,
@@ -283,16 +279,6 @@ export function Sidebar({
           <button className="circle-btn w-[18px] h-[18px]" aria-label="搜索">
             <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </button>
-          <button
-            className={`circle-btn w-[18px] h-[18px] ${showApduConsole ? 'bg-[#4b6ef3] text-white' : ''}`}
-            aria-label="控制台"
-            onClick={onToggleApduConsole}
-            title={showApduConsole ? '隐藏控制台' : '显示控制台'}
-          >
-            <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 17l6-5-6-5M12 19h8" />
             </svg>
           </button>
         </div>

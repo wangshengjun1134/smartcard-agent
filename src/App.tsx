@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useSessions } from './hooks/useSessions';
 import { AppLayout } from './components/layout/AppLayout';
 import { Sidebar, ViewType } from './components/Sidebar/Sidebar';
@@ -311,6 +311,8 @@ function App() {
                 <ChatInput
                   onSend={handleSendMessage}
                   disabled={false}
+                  showApduConsole={showApduConsole}
+                  onToggleApduConsole={toggleApduConsole}
                 />
               </div>
             </>
@@ -329,6 +331,8 @@ function App() {
               <ChatInput
                 onSend={handleSendMessage}
                 disabled={false}
+                showApduConsole={showApduConsole}
+                onToggleApduConsole={toggleApduConsole}
               />
             </div>
           )}
@@ -359,8 +363,6 @@ function App() {
             groups={groups}
             currentSessionId={currentSessionId}
             currentView={currentView}
-            showApduConsole={showApduConsole}
-            onToggleApduConsole={toggleApduConsole}
             onNewSession={createSession}
             onSelectSession={switchSession}
             onDeleteSession={deleteSession}

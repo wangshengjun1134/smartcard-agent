@@ -3,9 +3,11 @@ import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 interface ChatInputProps {
   onSend: (content: string) => void;
   disabled?: boolean;
+  showApduConsole?: boolean;
+  onToggleApduConsole?: () => void;
 }
 
-export function ChatInput({ onSend, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, showApduConsole, onToggleApduConsole }: ChatInputProps) {
   const [content, setContent] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -68,6 +70,16 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
               🔌
               连接读卡器
             </div>
+            <button
+              className={`tool-chip cursor-pointer ${showApduConsole ? 'bg-[#4b6ef3] text-white' : ''}`}
+              onClick={onToggleApduConsole}
+              title={showApduConsole ? '隐藏控制台' : '显示控制台'}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 17l6-5-6-5M12 19h8" />
+              </svg>
+              控制台
+            </button>
             <div className="tool-chip">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
