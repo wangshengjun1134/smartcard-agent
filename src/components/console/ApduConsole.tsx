@@ -126,32 +126,6 @@ const CheckCircleIcon = () => (
   </svg>
 );
 
-const ConnectIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    className="w-3.5 h-3.5"
-  >
-    <circle cx="12" cy="12" r="10" />
-    <circle cx="12" cy="12" r="3" />
-  </svg>
-);
-
-const ConnectedIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    className="w-3.5 h-3.5"
-  >
-    <circle cx="12" cy="12" r="10" />
-    <circle cx="12" cy="12" r="6" fill="currentColor" />
-  </svg>
-);
-
 export default function ApduConsole({ embedded = false }: ApduConsoleProps) {
   const [readers, setReaders] = useState<ReaderInfo[]>([]);
   const [selectedReader, setSelectedReader] = useState<string | null>(null);
@@ -514,7 +488,7 @@ export default function ApduConsole({ embedded = false }: ApduConsoleProps) {
           onClick={handleToggleConnect}
           disabled={isConnecting}
         >
-          {isConnected ? <ConnectedIcon /> : <ConnectIcon />}
+          <span className={isConnected ? 'text-[#4b6ef3]' : ''}>🔌</span>
           <span>{isConnecting ? (isConnected ? '断开中...' : '连接中...') : (isConnected ? '断开' : '连接')}</span>
         </button>
       </div>
