@@ -15,6 +15,7 @@ interface FileIconItemProps {
   editing?: boolean;
   onRename?: (file: FileNode, newName: string) => void;
   onDelete?: (file: FileNode) => void;
+  onVectorize?: (file: FileNode) => void;
   onStartEdit?: (file: FileNode) => void;
   onCancelEdit?: () => void;
 }
@@ -35,6 +36,7 @@ export function FileIconItem({
   editing = false,
   onRename,
   onDelete,
+  onVectorize,
   onStartEdit,
   onCancelEdit,
 }: FileIconItemProps) {
@@ -53,6 +55,7 @@ export function FileIconItem({
       ]
     : [
         { id: 'open', label: '打开', icon: 'fa-regular fa-file' },
+        { id: 'vectorize', label: '向量化', icon: 'fa-regular fa-bolt' },
         { id: 'rename', label: '重命名', icon: 'fa-regular fa-pen' },
         { id: 'divider', label: '', divider: true },
         { id: 'delete', label: '删除', icon: 'fa-regular fa-trash', danger: true },
@@ -70,6 +73,9 @@ export function FileIconItem({
     switch (id) {
       case 'open':
         onDoubleClick?.(file);
+        break;
+      case 'vectorize':
+        onVectorize?.(file);
         break;
       case 'rename':
         onStartEdit?.(file);

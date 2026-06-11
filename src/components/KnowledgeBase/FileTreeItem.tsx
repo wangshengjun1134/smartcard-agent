@@ -13,6 +13,7 @@ interface FileTreeItemProps {
   onFileClick: (node: FileNode) => void;
   onRename?: (file: FileNode, newName: string) => void;
   onDelete?: (file: FileNode) => void;
+  onVectorize?: (file: FileNode) => void;
   onStartEdit?: (file: FileNode) => void;
   onCancelEdit?: () => void;
   onCreateFolder?: (parentFolder?: FileNode) => void;
@@ -33,6 +34,7 @@ export function FileTreeItem({
   onFileClick,
   onRename,
   onDelete,
+  onVectorize,
   onStartEdit,
   onCancelEdit,
   onCreateFolder,
@@ -58,6 +60,7 @@ export function FileTreeItem({
       ]
     : [
         { id: 'open', label: '打开', icon: 'fa-regular fa-file' },
+        { id: 'vectorize', label: '向量化', icon: 'fa-regular fa-bolt' },
         { id: 'divider', label: '', divider: true },
         { id: 'rename', label: '重命名', icon: 'fa-regular fa-pen' },
         { id: 'divider2', label: '', divider: true },
@@ -80,6 +83,9 @@ export function FileTreeItem({
         } else {
           onFileClick(node);
         }
+        break;
+      case 'vectorize':
+        onVectorize?.(node);
         break;
       case 'newFolder':
         onCreateFolder?.(node);

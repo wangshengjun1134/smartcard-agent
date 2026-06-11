@@ -13,6 +13,7 @@ interface FileGridViewProps {
   onMoveFile?: (draggedFile: FileNode, targetFolder: FileNode) => void;
   onRename?: (file: FileNode, newName: string) => void;
   onDelete?: (file: FileNode) => void;
+  onVectorize?: (file: FileNode) => void;
   onStartEdit?: (file: FileNode) => void;
   onCancelEdit?: () => void;
   onCreateFolder?: (parentFolder?: FileNode) => void;
@@ -32,6 +33,7 @@ export function FileGridView({
   onMoveFile,
   onRename,
   onDelete,
+  onVectorize,
   onStartEdit,
   onCancelEdit,
   onCreateFolder,
@@ -97,6 +99,7 @@ export function FileGridView({
             onDrop={handleDrop}
             onRename={onRename}
             onDelete={onDelete}
+            onVectorize={onVectorize}
             onStartEdit={onStartEdit}
             onCancelEdit={onCancelEdit}
           />

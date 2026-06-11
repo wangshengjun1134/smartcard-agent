@@ -224,6 +224,14 @@ export function KnowledgeBase() {
     }
   }, [deleteFile, selectedFile, refresh]);
 
+  // 向量化文件
+  const handleVectorize = useCallback(async (file: FileNode) => {
+    if (file.isFolder) return;
+    console.log('Vectorizing file:', file.name, file.id);
+    // TODO: 调用后端向量化 API
+    alert(`向量化功能开发中: ${file.name}`);
+  }, []);
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* 顶部栏 */}
@@ -308,6 +316,7 @@ export function KnowledgeBase() {
                   onMoveFile={handleMoveFile}
                   onRename={handleRename}
                   onDelete={handleDelete}
+                  onVectorize={handleVectorize}
                   onStartEdit={handleStartEdit}
                   onCancelEdit={handleCancelEdit}
                   onCreateFolder={handleCreateFolder}
@@ -321,6 +330,7 @@ export function KnowledgeBase() {
                   onFileClick={handleTreeFileClick}
                   onRename={handleRename}
                   onDelete={handleDelete}
+                  onVectorize={handleVectorize}
                   onStartEdit={handleStartEdit}
                   onCancelEdit={handleCancelEdit}
                   onCreateFolder={handleCreateFolder}
