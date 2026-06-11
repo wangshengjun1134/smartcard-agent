@@ -441,13 +441,13 @@ export default function ApduConsole({ embedded = false }: ApduConsoleProps) {
         </div>
       )}
 
-      <div className={`flex-1 flex flex-col overflow-hidden ${embedded ? '' : 'rounded-xl bg-white shadow-sm'}`}>
+      <div className={`flex-1 flex flex-col ${embedded ? '' : 'rounded-xl bg-white shadow-sm'}`}>
       {/* 头部 */}
-      <div className="bg-white px-4 h-[45px] flex items-center gap-3 flex-shrink-0 overflow-hidden">
+      <div className="bg-white px-4 h-[45px] flex items-center gap-3 flex-shrink-0 overflow-visible">
         {/* 读卡器选择 - 动态宽度，最大限制 */}
-        <div className="relative flex items-center flex-1 min-w-[120px] max-w-[300px]">
+        <div className="relative flex items-center flex-1 min-w-[120px] max-w-[300px] overflow-visible">
           <button
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-transparent border-none rounded-md cursor-pointer text-sm text-[#333] transition-[background] duration-150 hover:bg-[#e5e5e5] w-full justify-between overflow-hidden"
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-transparent border-none rounded-md cursor-pointer text-sm text-[#333] transition-[background] duration-150 hover:bg-[#e5e5e5] w-full justify-between"
             onClick={handleToggleDropdown}
             title={selectedReader || undefined}
           >
