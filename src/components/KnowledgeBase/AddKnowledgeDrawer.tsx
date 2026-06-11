@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { KnowledgeFormData, DEFAULT_FORM_DATA } from '../../types/knowledge';
+import { FileNode } from '../../types/file';
 import { useFileSelection } from '../../hooks/useFileSelection';
 import { useFormValidation } from '../../hooks/useFormValidation';
 import { useDialogClose } from '../../hooks/useDialog';
@@ -10,7 +11,8 @@ import { DrawerFooter } from './DrawerFooter';
 interface AddKnowledgeDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (file: File, data: KnowledgeFormData) => Promise<void>;
+  onSubmit: (file: File, data: KnowledgeFormData, parentId?: string) => Promise<void>;
+  parentFolder?: FileNode; // 树状视图右键目录时传入
 }
 
 /**
@@ -20,6 +22,7 @@ export function AddKnowledgeDrawer({
   isOpen,
   onClose,
   onSubmit,
+  parentFolder,
 }: AddKnowledgeDrawerProps) {
   // 文件上传状态
   const { file, fileHash, isCalculatingHash, selectFile, clearFile } = useFileSelection();
@@ -110,7 +113,7 @@ export function AddKnowledgeDrawer({
 
     setIsSubmitting(true);
     try {
-      await onSubmit(file!, formData);
+      await onSubmit(file!, formData, parentFolder?.id);
       onClose();
     } catch (error) {
       console.error('Upload failed:', error);
@@ -153,7 +156,7 @@ export function AddKnowledgeDrawer({
         {/* 头部 */}
         <div className="drawer-header h-[45px] flex items-center justify-between px-4 border-b border-[#ececee] dark:border-[#333333]">
           <span className="text-[14px] font-medium text-[#1a1a1a] dark:text-white">
-            添加知识
+            {parentFolder ? `添加知识到 ${parentFolder.name}` : '添加知识'}
           </span>
           <button
             type="button"

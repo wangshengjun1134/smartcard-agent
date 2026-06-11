@@ -29,6 +29,12 @@ export function KnowledgeBase() {
   // 添加知识抽屉状态
   const [addDrawerOpen, setAddDrawerOpen] = useState(false);
 
+  // 上传目标文件夹（树状视图右键目录时设置）
+  const [uploadTargetFolder, setUploadTargetFolder] = useState<FileNode | null>(null);
+
+  // 编辑状态：正在编辑的文件 ID
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   // 获取文件结构数据
   const { fileStructure, loading, error, refresh } = useFileStructure();
 
@@ -36,7 +42,7 @@ export function KnowledgeBase() {
   const { uploadState, uploadFile } = useFileUpload();
 
   // 文件操作 Hook
-  const { createFolder, moveFile } = useFileOperations();
+  const { createFolder, moveFile, renameFile, deleteFile } = useFileOperations();
 
   // 根据当前路径获取当前显示的文件列表（使用统一的工具函数）
   const currentFiles = useMemo(() => {
@@ -116,21 +122,25 @@ export function KnowledgeBase() {
   };
 
   // 打开添加知识抽屉
-  const handleAddClick = useCallback(() => {
+  // parentFolder: 树状视图右键目录时传入
+  const handleAddClick = useCallback((parentFolder?: FileNode) => {
+    setUploadTargetFolder(parentFolder || null);
     setAddDrawerOpen(true);
   }, []);
 
   // 关闭添加知识抽屉
   const handleCloseAddDrawer = useCallback(() => {
     setAddDrawerOpen(false);
+    setUploadTargetFolder(null);
   }, []);
 
   // 处理知识上传
   const handleKnowledgeSubmit = useCallback(
-    async (file: File, _data: KnowledgeFormData) => {
+    async (file: File, _data: KnowledgeFormData, parentId?: string) => {
       try {
-        const parentId = getCurrentFolderId();
-        const result = await uploadFile(file, parentId);
+        // 使用传入的 parentId，或当前目录的 parentId
+        const targetParentId = parentId || getCurrentFolderId();
+        const result = await uploadFile(file, targetParentId);
         
         if (result) {
           // 上传成功后刷新文件列表
@@ -147,17 +157,21 @@ export function KnowledgeBase() {
   );
 
   // 新建文件夹（使用统一的工具函数）
-  const handleCreateFolder = useCallback(async () => {
-    // 获取当前目录下已有的文件夹名称
-    const existingNames = getFolderNames(currentFiles);
-    const newFolderName = generateUniqueFolderName(existingNames);
+  // parentFolder: 树状视图右键目录时传入，图标视图空白区域时不传
+  const handleCreateFolder = useCallback(async (parentFolder?: FileNode) => {
+    // 确定目标目录的文件列表和 parent_id
+    const targetFiles = parentFolder?.children || currentFiles;
+    const parentId = parentFolder?.id || getCurrentFolderId();
 
-    // 查找当前目录的 parent_id
-    const parentId = getCurrentFolderId();
+    // 获取目标目录下已有的文件夹名称
+    const existingNames = getFolderNames(targetFiles);
+    const newFolderName = generateUniqueFolderName(existingNames);
 
     // 调用后端 API 创建文件夹
     const result = await createFolder(newFolderName, parentId);
     if (result) {
+      // 选中新创建的文件夹
+      setSelectedFile(result);
       refresh();
     }
   }, [currentFiles, getCurrentFolderId, createFolder, refresh]);
@@ -170,6 +184,37 @@ export function KnowledgeBase() {
       refresh();
     }
   }, [moveFile, refresh]);
+
+  // 开始编辑文件名
+  const handleStartEdit = useCallback((file: FileNode) => {
+    setEditingId(file.id);
+  }, []);
+
+  // 取消编辑
+  const handleCancelEdit = useCallback(() => {
+    setEditingId(null);
+  }, []);
+
+  // 重命名文件/文件夹
+  const handleRename = useCallback(async (file: FileNode, newName: string) => {
+    const result = await renameFile(file.id, newName);
+    if (result) {
+      setEditingId(null);
+      refresh();
+    }
+  }, [renameFile, refresh]);
+
+  // 删除文件/文件夹
+  const handleDelete = useCallback(async (file: FileNode) => {
+    const result = await deleteFile(file.id);
+    if (result) {
+      // 清除选中状态
+      if (selectedFile?.id === file.id) {
+        setSelectedFile(null);
+      }
+      refresh();
+    }
+  }, [deleteFile, selectedFile, refresh]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -248,15 +293,29 @@ export function KnowledgeBase() {
                 <FileGridView
                   files={currentFiles}
                   selectedFileId={selectedFile?.id || null}
+                  editingId={editingId}
                   onFileClick={handleFileClick}
                   onDoubleClick={handleDoubleClick}
                   onMoveFile={handleMoveFile}
+                  onRename={handleRename}
+                  onDelete={handleDelete}
+                  onStartEdit={handleStartEdit}
+                  onCancelEdit={handleCancelEdit}
+                  onCreateFolder={handleCreateFolder}
+                  onUploadFile={handleAddClick}
                 />
               ) : (
                 <FileTreeView
                   files={fileStructure}
                   selectedFileId={selectedFile?.id || null}
+                  editingId={editingId}
                   onFileClick={handleTreeFileClick}
+                  onRename={handleRename}
+                  onDelete={handleDelete}
+                  onStartEdit={handleStartEdit}
+                  onCancelEdit={handleCancelEdit}
+                  onCreateFolder={handleCreateFolder}
+                  onUploadFile={handleAddClick}
                 />
               )}
             </>
@@ -275,6 +334,7 @@ export function KnowledgeBase() {
           isOpen={addDrawerOpen}
           onClose={handleCloseAddDrawer}
           onSubmit={handleKnowledgeSubmit}
+          parentFolder={uploadTargetFolder || undefined}
         />
       </div>
     </div>

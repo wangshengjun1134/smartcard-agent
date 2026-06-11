@@ -571,16 +571,18 @@
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 16px;
   padding: 16px;
+  min-height: 100%;
+  align-content: start;
+  align-items: start;
 }
 
 /* 图标视图项 */
 .file-icon-item {
   width: 80px;
-  height: 100px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  padding: 8px 4px;
   border-radius: 8px;
   cursor: pointer;
   transition: background-color 0.2s, border-color 0.2s, opacity 0.2s;
@@ -630,17 +632,15 @@
 /* 文件名 */
 .file-name {
   font-size: 13px;
-  max-width: 76px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   text-align: center;
   color: #1a1a1a;
+  word-break: break-word;
 }
 
 /* 树状视图 */
 .file-tree {
   padding: 8px 12px;
+  min-height: 100%;
 }
 
 .file-tree-node {
@@ -690,9 +690,6 @@
 .tree-file-name {
   font-size: 14px;
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: #1a1a1a;
 }
 
@@ -1489,4 +1486,133 @@
 .dark .hljs-built_in,
 .dark .hljs-deletion {
   color: #ffa657 !important;
+}
+
+/* 右键菜单样式 */
+.context-menu {
+  min-width: 160px;
+  background: #ffffff;
+  border: 1px solid #ececee;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 4px 0;
+  overflow: hidden;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #1a1a1a;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.context-menu-item:hover {
+  background-color: #f7f8fa;
+}
+
+.context-menu-item.danger {
+  color: #e74c3c;
+}
+
+.context-menu-item.danger:hover {
+  background-color: #fef2f2;
+}
+
+.context-menu-item.disabled {
+  color: #999;
+  cursor: not-allowed;
+}
+
+.context-menu-item.disabled:hover {
+  background-color: transparent;
+}
+
+.context-menu-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.context-menu-label {
+  flex: 1;
+}
+
+.context-menu-divider {
+  height: 1px;
+  background-color: #ececee;
+  margin: 4px 0;
+}
+
+/* 深色模式 - 右键菜单 */
+.dark .context-menu {
+  background: #333333 !important;
+  border-color: #404040 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark .context-menu-item {
+  color: #ffffff !important;
+}
+
+.dark .context-menu-item:hover {
+  background-color: #404040 !important;
+}
+
+.dark .context-menu-item.danger {
+  color: #f87171 !important;
+}
+
+.dark .context-menu-item.danger:hover {
+  background-color: rgba(248, 113, 113, 0.1) !important;
+}
+
+.dark .context-menu-item.disabled {
+  color: #808080 !important;
+}
+
+.dark .context-menu-divider {
+  background-color: #404040 !important;
+}
+
+/* 文件名编辑输入框 */
+.file-name-input {
+  width: 100%;
+  font-size: 13px;
+  padding: 2px 4px;
+  border: 1px solid #4b6ef3;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #1a1a1a;
+  outline: none;
+  text-align: center;
+}
+
+.dark .file-name-input {
+  background: #333333 !important;
+  color: #ffffff !important;
+  border-color: #4b6ef3 !important;
+}
+
+.tree-name-input {
+  font-size: 14px;
+  padding: 2px 6px;
+  border: 1px solid #4b6ef3;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #1a1a1a;
+  outline: none;
+  flex: 1;
+}
+
+.dark .tree-name-input {
+  background: #333333 !important;
+  color: #ffffff !important;
+  border-color: #4b6ef3 !important;
 }

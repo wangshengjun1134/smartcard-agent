@@ -27,6 +27,8 @@ export const API_CONFIG = {
       detail: (fileId: string) => `/api/files/${fileId}`,
       createFolder: '/api/files/folder',
       move: '/api/files/move',
+      rename: (fileId: string) => `/api/files/${fileId}/rename`,
+      delete: (fileId: string) => `/api/files/${fileId}`,
     },
     rag: {
       query: '/api/rag/query',

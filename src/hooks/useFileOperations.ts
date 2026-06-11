@@ -11,11 +11,13 @@ interface UseFileOperationsReturn {
   operationState: OperationState;
   createFolder: (name: string, parentId?: string) => Promise<FileNode | null>;
   moveFile: (fileId: string, targetFolderId?: string) => Promise<FileNode | null>;
+  renameFile: (fileId: string, newName: string) => Promise<FileNode | null>;
+  deleteFile: (fileId: string) => Promise<boolean>;
 }
 
 /**
  * 文件操作 Hook
- * 处理文件夹创建和文件移动等操作
+ * 处理文件夹创建、文件移动、重命名、删除等操作
  */
 export function useFileOperations(): UseFileOperationsReturn {
   const [operationState, setOperationState] = useState<OperationState>({
@@ -97,9 +99,77 @@ export function useFileOperations(): UseFileOperationsReturn {
     }
   }, []);
 
+  // 重命名文件/文件夹
+  const renameFile = useCallback(async (fileId: string, newName: string): Promise<FileNode | null> => {
+    setOperationState({ loading: true, error: null });
+
+    try {
+      const response = await fetch(getApiUrl(API_CONFIG.endpoints.files.rename(fileId)), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newName,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Rename failed' }));
+        throw new Error(errorData.detail || `重命名失败: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.status === 'ok' && data.data) {
+        setOperationState({ loading: false, error: null });
+        return data.data as FileNode;
+      } else {
+        throw new Error('Invalid API response format');
+      }
+    } catch (err) {
+      console.error('Rename failed:', err);
+      const error = err instanceof Error ? err : new Error('重命名失败');
+      setOperationState({ loading: false, error });
+      return null;
+    }
+  }, []);
+
+  // 删除文件/文件夹
+  const deleteFile = useCallback(async (fileId: string): Promise<boolean> => {
+    setOperationState({ loading: true, error: null });
+
+    try {
+      const response = await fetch(getApiUrl(API_CONFIG.endpoints.files.delete(fileId)), {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Delete failed' }));
+        throw new Error(errorData.detail || `删除失败: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.status === 'ok' && data.data?.deleted) {
+        setOperationState({ loading: false, error: null });
+        return true;
+      } else {
+        throw new Error('Invalid API response format');
+      }
+    } catch (err) {
+      console.error('Delete failed:', err);
+      const error = err instanceof Error ? err : new Error('删除失败');
+      setOperationState({ loading: false, error });
+      return false;
+    }
+  }, []);
+
   return {
     operationState,
     createFolder,
     moveFile,
+    renameFile,
+    deleteFile,
   };
 }
