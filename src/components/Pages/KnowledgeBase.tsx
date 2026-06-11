@@ -136,12 +136,20 @@ export function KnowledgeBase() {
 
   // 处理知识上传
   const handleKnowledgeSubmit = useCallback(
-    async (file: File, _data: KnowledgeFormData, parentId?: string) => {
+    async (file: File, data: KnowledgeFormData, kbId: string, folderId?: string) => {
       try {
-        // 使用传入的 parentId，或当前目录的 parentId
-        const targetParentId = parentId || getCurrentFolderId();
-        const result = await uploadFile(file, targetParentId);
-        
+        // 构建上传参数 (与 documents 表字段对应)
+        const params = {
+          kb_id: kbId,
+          folder_id: folderId,
+          title: data.title || file.name,
+          source: data.source || undefined,
+          language: data.language || 'zh',
+          tags: data.tags.length > 0 ? data.tags : undefined,
+        };
+
+        const result = await uploadFile(file, params);
+
         if (result) {
           // 上传成功后刷新文件列表
           refresh();
@@ -153,7 +161,7 @@ export function KnowledgeBase() {
         throw error;
       }
     },
-    [uploadFile, uploadState, getCurrentFolderId, refresh]
+    [uploadFile, uploadState, refresh]
   );
 
   // 新建文件夹（使用统一的工具函数）
@@ -222,8 +230,8 @@ export function KnowledgeBase() {
       <KnowledgeBaseHeader
         viewMode={viewMode}
         onViewModeChange={handleViewModeChange}
-        onAddClick={handleAddClick}
-        onCreateFolder={handleCreateFolder}
+        onAddClick={() => handleAddClick(findFolderByPath(fileStructure, currentPath) || undefined)}
+        onCreateFolder={() => handleCreateFolder(findFolderByPath(fileStructure, currentPath) || undefined)}
       />
 
       {/* 内容区域容器 */}
@@ -294,6 +302,7 @@ export function KnowledgeBase() {
                   files={currentFiles}
                   selectedFileId={selectedFile?.id || null}
                   editingId={editingId}
+                  currentFolder={findFolderByPath(fileStructure, currentPath) || null}
                   onFileClick={handleFileClick}
                   onDoubleClick={handleDoubleClick}
                   onMoveFile={handleMoveFile}

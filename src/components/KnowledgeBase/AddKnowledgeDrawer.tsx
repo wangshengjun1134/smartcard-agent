@@ -4,14 +4,16 @@ import { FileNode } from '../../types/file';
 import { useFileSelection } from '../../hooks/useFileSelection';
 import { useFormValidation } from '../../hooks/useFormValidation';
 import { useDialogClose } from '../../hooks/useDialog';
+import { useKnowledgeBases } from '../../hooks/useKnowledgeBases';
 import { FileUploadZone } from './FileUploadZone';
 import { KnowledgeForm } from './KnowledgeForm';
+import { KnowledgeBaseSelect } from './KnowledgeBaseSelect';
 import { DrawerFooter } from './DrawerFooter';
 
 interface AddKnowledgeDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (file: File, data: KnowledgeFormData, parentId?: string) => Promise<void>;
+  onSubmit: (file: File, data: KnowledgeFormData, kbId: string, parentId?: string) => Promise<void>;
   parentFolder?: FileNode; // 树状视图右键目录时传入
 }
 
@@ -27,8 +29,14 @@ export function AddKnowledgeDrawer({
   // 文件上传状态
   const { file, fileHash, isCalculatingHash, selectFile, clearFile } = useFileSelection();
 
+  // 知识库列表
+  const { knowledgeBases, loading: kbLoading } = useKnowledgeBases();
+
   // 表单数据状态
   const [formData, setFormData] = useState<KnowledgeFormData>({ ...DEFAULT_FORM_DATA });
+
+  // 选中的知识库
+  const [selectedKbId, setSelectedKbId] = useState<string>('');
 
   // 表单验证
   const { errors, validate, clearErrors } = useFormValidation();
@@ -49,8 +57,17 @@ export function AddKnowledgeDrawer({
       setFormData({ ...DEFAULT_FORM_DATA });
       clearErrors();
       setIsSubmitting(false);
+      // 默认选中第一个知识库
+      setSelectedKbId('');
     }
   }, [isOpen, clearFile, clearErrors]);
+
+  // 知识库列表加载完成后设置默认值
+  useEffect(() => {
+    if (!kbLoading && knowledgeBases.length > 0 && !selectedKbId) {
+      setSelectedKbId(knowledgeBases[0].id);
+    }
+  }, [kbLoading, knowledgeBases, selectedKbId]);
 
   // 文件选择后更新表单数据
   const handleFileSelect = useCallback(
@@ -107,21 +124,20 @@ export function AddKnowledgeDrawer({
   const handleConfirm = useCallback(async () => {
     // 验证表单
     const isValid = validate(formData, !!file);
-    if (!isValid) {
+    if (!isValid || !selectedKbId) {
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await onSubmit(file!, formData, parentFolder?.id);
+      await onSubmit(file!, formData, selectedKbId, parentFolder?.id);
       onClose();
     } catch (error) {
       console.error('Upload failed:', error);
-      // TODO: 显示错误提示
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, file, validate, onSubmit, onClose]);
+  }, [formData, file, selectedKbId, parentFolder?.id, validate, onSubmit, onClose]);
 
   // 点击遮罩关闭
   const handleOverlayClick = useCallback(
@@ -134,7 +150,7 @@ export function AddKnowledgeDrawer({
   );
 
   // 确认按钮禁用条件
-  const isConfirmDisabled = !file || isCalculatingHash || !formData.title.trim();
+  const isConfirmDisabled = !file || isCalculatingHash || !formData.title.trim() || !selectedKbId;
 
   return (
     <>
@@ -182,6 +198,25 @@ export function AddKnowledgeDrawer({
             />
             {errors.file && (
               <div className="text-[12px] text-[#e74c3c] mt-2">{errors.file}</div>
+            )}
+          </div>
+
+          {/* 知识库选择 */}
+          <div className="mb-4">
+            <label className="form-label block text-[13px] font-bold text-[#4a4a4a] dark:text-[#b3b3b3] mb-1">
+              知识库
+            </label>
+            {kbLoading ? (
+              <div className="text-[13px] text-[#999] dark:text-[#808080]">加载中...</div>
+            ) : knowledgeBases.length === 0 ? (
+              <div className="text-[13px] text-[#e74c3c]">无可用知识库，请先创建知识库</div>
+            ) : (
+              <KnowledgeBaseSelect
+                value={selectedKbId}
+                onChange={setSelectedKbId}
+                options={knowledgeBases}
+                placeholder="请选择知识库"
+              />
             )}
           </div>
 

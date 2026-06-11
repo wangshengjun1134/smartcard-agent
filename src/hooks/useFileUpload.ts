@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { FileNode } from '../types/file';
+import { Document } from '../types/knowledge';
 import { getApiUrl, API_CONFIG, FILE_UPLOAD_CONSTRAINTS } from '../config/api';
 
 interface UploadState {
@@ -8,9 +8,21 @@ interface UploadState {
   error: Error | null;
 }
 
+interface UploadParams {
+  kb_id: string;
+  folder_id?: string;
+  title?: string;
+  source?: string;
+  language?: string;
+  tags?: string[];
+  effective_from?: string;
+  effective_until?: string;
+  uploaded_by?: string;
+}
+
 interface UseFileUploadReturn {
   uploadState: UploadState;
-  uploadFile: (file: File, parentId?: string) => Promise<FileNode | null>;
+  uploadFile: (file: File, params: UploadParams) => Promise<Document | null>;
 }
 
 /**
@@ -43,7 +55,7 @@ export function useFileUpload(): UseFileUploadReturn {
   };
 
   // 上传文件
-  const uploadFile = useCallback(async (file: File, parentId?: string): Promise<FileNode | null> => {
+  const uploadFile = useCallback(async (file: File, params: UploadParams): Promise<Document | null> => {
     // 验证文件
     const validationError = validateFile(file);
     if (validationError) {
@@ -57,12 +69,34 @@ export function useFileUpload(): UseFileUploadReturn {
       // 构建 FormData
       const formData = new FormData();
       formData.append('file', file);
-      if (parentId) {
-        formData.append('parent_id', parentId);
+      formData.append('kb_id', params.kb_id);
+      if (params.folder_id) {
+        formData.append('folder_id', params.folder_id);
+      }
+      if (params.title) {
+        formData.append('title', params.title);
+      }
+      if (params.source) {
+        formData.append('source', params.source);
+      }
+      if (params.language) {
+        formData.append('language', params.language);
+      }
+      if (params.tags && params.tags.length > 0) {
+        formData.append('tags', JSON.stringify(params.tags));
+      }
+      if (params.effective_from) {
+        formData.append('effective_from', params.effective_from);
+      }
+      if (params.effective_until) {
+        formData.append('effective_until', params.effective_until);
+      }
+      if (params.uploaded_by) {
+        formData.append('uploaded_by', params.uploaded_by);
       }
 
       // 发送上传请求
-      const response = await fetch(getApiUrl(API_CONFIG.endpoints.files.upload), {
+      const response = await fetch(getApiUrl(API_CONFIG.endpoints.documents.upload), {
         method: 'POST',
         body: formData,
       });
@@ -78,7 +112,7 @@ export function useFileUpload(): UseFileUploadReturn {
 
       if (data.status === 'ok' && data.data) {
         setUploadState({ uploading: false, progress: 100, error: null });
-        return data.data as FileNode;
+        return data.data as Document;
       } else {
         throw new Error('Invalid API response format');
       }

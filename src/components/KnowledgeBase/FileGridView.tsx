@@ -7,6 +7,7 @@ interface FileGridViewProps {
   files: FileNode[];
   selectedFileId: string | null;
   editingId: string | null;
+  currentFolder: FileNode | null;
   onFileClick: (file: FileNode) => void;
   onDoubleClick: (file: FileNode) => void;
   onMoveFile?: (draggedFile: FileNode, targetFolder: FileNode) => void;
@@ -14,8 +15,8 @@ interface FileGridViewProps {
   onDelete?: (file: FileNode) => void;
   onStartEdit?: (file: FileNode) => void;
   onCancelEdit?: () => void;
-  onCreateFolder?: () => void;
-  onUploadFile?: () => void;
+  onCreateFolder?: (parentFolder?: FileNode) => void;
+  onUploadFile?: (parentFolder?: FileNode) => void;
 }
 
 /**
@@ -25,6 +26,7 @@ export function FileGridView({
   files,
   selectedFileId,
   editingId,
+  currentFolder,
   onFileClick,
   onDoubleClick,
   onMoveFile,
@@ -60,10 +62,10 @@ export function FileGridView({
   const handleMenuSelect = (id: string) => {
     switch (id) {
       case 'newFolder':
-        onCreateFolder?.();
+        onCreateFolder?.(currentFolder || undefined);
         break;
       case 'upload':
-        onUploadFile?.();
+        onUploadFile?.(currentFolder || undefined);
         break;
     }
   };

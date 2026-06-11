@@ -45,6 +45,7 @@ class DocumentRecord(BaseModel):
 
     id: str
     kb_id: str
+    folder_id: Optional[str] = None
     filename: str
     file_path: Optional[str] = None
     file_size: Optional[int] = None
@@ -72,6 +73,7 @@ class DocumentResponse(BaseModel):
 
     id: str
     kb_id: str
+    folder_id: Optional[str] = None
     filename: str
     file_path: Optional[str] = None
     file_size: Optional[int] = None

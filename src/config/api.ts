@@ -30,6 +30,20 @@ export const API_CONFIG = {
       rename: (fileId: string) => `/api/files/${fileId}/rename`,
       delete: (fileId: string) => `/api/files/${fileId}`,
     },
+    documents: {
+      upload: '/api/documents/upload',
+      list: '/api/documents/list',
+      detail: (docId: string) => `/api/documents/${docId}`,
+      update: (docId: string) => `/api/documents/${docId}`,
+      delete: (docId: string) => `/api/documents/${docId}`,
+    },
+    knowledgeBases: {
+      list: '/api/knowledge-bases/list',
+      create: '/api/knowledge-bases',
+      detail: (kbId: string) => `/api/knowledge-bases/${kbId}`,
+      update: (kbId: string) => `/api/knowledge-bases/${kbId}`,
+      delete: (kbId: string) => `/api/knowledge-bases/${kbId}`,
+    },
     rag: {
       query: '/api/rag/query',
       search: '/api/rag/search',
@@ -75,8 +89,13 @@ export const API_CONFIG = {
  * @returns Base URL for the service
  */
 function getBaseUrlForPath(path: string): string {
-  // RAG service handles files and rag endpoints
-  if (path.startsWith('/api/files') || path.startsWith('/api/rag')) {
+  // RAG service handles files, documents, knowledge-bases, and rag endpoints
+  if (
+    path.startsWith('/api/files') ||
+    path.startsWith('/api/documents') ||
+    path.startsWith('/api/knowledge-bases') ||
+    path.startsWith('/api/rag')
+  ) {
     return RAG_BASE_URL;
   }
   // Agent service handles all other endpoints

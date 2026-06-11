@@ -1,4 +1,4 @@
-import { KnowledgeFormData, ORGANIZATIONS, DOC_TYPES, CATEGORIES } from '../../types/knowledge';
+import { KnowledgeFormData, LANGUAGES } from '../../types/knowledge';
 import { TagInput } from './TagInput';
 import { CategorySelect } from './CategorySelect';
 
@@ -12,6 +12,7 @@ interface KnowledgeFormProps {
 
 /**
  * 知识库元数据表单组件
+ * 字段与 documents 表结构保持一致
  */
 export function KnowledgeForm({
   fileName,
@@ -32,9 +33,9 @@ export function KnowledgeForm({
 
   return (
     <div className="knowledge-form">
-      {/* 自动填充字段 */}
+      {/* 文件信息 */}
       <div className="form-section mb-4">
-        <div className="form-section-title text-[13px] font-medium text-[#4a4a4a] dark:text-[#b3b3b3] mb-3">
+        <div className="form-section-title text-[13px] font-bold text-[#4a4a4a] dark:text-[#b3b3b3] mb-3">
           文件信息
         </div>
 
@@ -66,10 +67,10 @@ export function KnowledgeForm({
         </div>
       </div>
 
-      {/* 规范识别字段 */}
+      {/* 文档元数据 */}
       <div className="form-section mb-4">
-        <div className="form-section-title text-[13px] font-medium text-[#4a4a4a] dark:text-[#b3b3b3] mb-3">
-          规范信息
+        <div className="form-section-title text-[13px] font-bold text-[#4a4a4a] dark:text-[#b3b3b3] mb-3">
+          文档信息
         </div>
 
         {/* 文档标题 (必填) */}
@@ -93,72 +94,41 @@ export function KnowledgeForm({
           )}
         </div>
 
-        {/* 规范编号 */}
+        {/* 来源说明 */}
         <div className="form-field mb-3">
           <label className="form-label block text-[13px] text-[#4a4a4a] dark:text-[#b3b3b3] mb-1">
-            规范编号
+            来源
           </label>
           <input
             type="text"
-            value={formData.spec_number}
-            onChange={(e) => handleInputChange('spec_number', e.target.value)}
-            placeholder="如 TS 102 221、SGP.23"
+            value={formData.source || ''}
+            onChange={(e) => handleInputChange('source', e.target.value)}
+            placeholder="如 3GPP TS 102.221、GSMA SGP.23"
             className="form-input w-full px-3 py-2 border border-[#ececee] dark:border-[#333333] rounded-lg text-[13px] bg-white dark:bg-[#222222] text-[#1a1a1a] dark:text-white outline-none focus:border-[#4b6ef3] transition-colors"
           />
         </div>
 
-        {/* 版本号 */}
+        {/* 语言 */}
         <div className="form-field mb-3">
           <label className="form-label block text-[13px] text-[#4a4a4a] dark:text-[#b3b3b3] mb-1">
-            版本号
-          </label>
-          <input
-            type="text"
-            value={formData.version}
-            onChange={(e) => handleInputChange('version', e.target.value)}
-            placeholder="如 v17.0.0、1.16"
-            className="form-input w-full px-3 py-2 border border-[#ececee] dark:border-[#333333] rounded-lg text-[13px] bg-white dark:bg-[#222222] text-[#1a1a1a] dark:text-white outline-none focus:border-[#4b6ef3] transition-colors"
-          />
-        </div>
-
-        {/* 发布组织 */}
-        <div className="form-field mb-3">
-          <label className="form-label block text-[13px] text-[#4a4a4a] dark:text-[#b3b3b3] mb-1">
-            发布组织
+            语言
           </label>
           <CategorySelect
-            value={formData.organization}
-            onChange={(value) => handleInputChange('organization', value)}
-            options={ORGANIZATIONS.map((org) => ({ value: org, label: org }))}
-            placeholder="请选择组织"
-          />
-        </div>
-
-        {/* 文档类型 */}
-        <div className="form-field mb-3">
-          <label className="form-label block text-[13px] text-[#4a4a4a] dark:text-[#b3b3b3] mb-1">
-            文档类型
-          </label>
-          <CategorySelect
-            value={formData.doc_type}
-            onChange={(value) => handleInputChange('doc_type', value)}
-            options={DOC_TYPES}
-            placeholder="请选择类型"
+            value={formData.language}
+            onChange={(value) => handleInputChange('language', value)}
+            options={LANGUAGES}
+            placeholder="请选择语言"
           />
         </div>
       </div>
 
-      {/* 分类字段 */}
+      {/* 标签 */}
       <div className="form-section">
-        <div className="form-section-title text-[13px] font-medium text-[#4a4a4a] dark:text-[#b3b3b3] mb-3">
-          分类信息
+        <div className="form-section-title text-[13px] font-bold text-[#4a4a4a] dark:text-[#b3b3b3] mb-3">
+          标签
         </div>
 
-        {/* 标签 */}
         <div className="form-field mb-3">
-          <label className="form-label block text-[13px] text-[#4a4a4a] dark:text-[#b3b3b3] mb-1">
-            标签
-          </label>
           <TagInput
             tags={formData.tags}
             onChange={handleTagsChange}
@@ -167,19 +137,6 @@ export function KnowledgeForm({
           <div className="form-hint text-[12px] text-[#999] dark:text-[#808080] mt-1">
             如: 5G, eSIM, 鉴权
           </div>
-        </div>
-
-        {/* 分类 */}
-        <div className="form-field mb-3">
-          <label className="form-label block text-[13px] text-[#4a4a4a] dark:text-[#b3b3b3] mb-1">
-            分类
-          </label>
-          <CategorySelect
-            value={formData.category}
-            onChange={(value) => handleInputChange('category', value)}
-            options={CATEGORIES}
-            placeholder="请选择分类"
-          />
         </div>
       </div>
     </div>

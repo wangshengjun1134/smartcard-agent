@@ -37,7 +37,7 @@ def init_knowledge_database(db_path: Optional[Path] = None) -> None:
     conn = get_knowledge_db_connection(db_path)
     cursor = conn.cursor()
 
-    # Create files table (legacy, kept for backward compatibility)
+    # Create files table (folder hierarchy for UI tree only)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS files (
             id TEXT PRIMARY KEY,
@@ -78,6 +78,7 @@ def init_knowledge_database(db_path: Optional[Path] = None) -> None:
         CREATE TABLE IF NOT EXISTS documents (
             id              TEXT PRIMARY KEY,
             kb_id           TEXT NOT NULL REFERENCES knowledge_bases(id),
+            folder_id       TEXT REFERENCES files(id) ON DELETE SET NULL,
             filename        TEXT NOT NULL,
             file_path       TEXT,
             file_size       INTEGER,
@@ -100,6 +101,13 @@ def init_knowledge_database(db_path: Optional[Path] = None) -> None:
             uploaded_by     TEXT
         )
     """)
+
+    # Add folder_id column migration (if table exists but column doesn't)
+    try:
+        cursor.execute("ALTER TABLE documents ADD COLUMN folder_id TEXT")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_documents_folder_id ON documents(folder_id)")
+    except sqlite3.OperationalError:
+        pass
 
     # Create chunks table
     cursor.execute("""
@@ -146,7 +154,7 @@ def init_knowledge_database(db_path: Optional[Path] = None) -> None:
     cursor.execute(
         """
         INSERT OR IGNORE INTO knowledge_bases (id, name, description, created_at, updated_at)
-        VALUES (?, 'smartcard spec', 'smartcard spec', datetime('now'), datetime('now'))
+        VALUES (?, 'smartcard spec', 'smartcard spec', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
         """,
         ("00000000-0000-0000-0000-000000000001",)
     )

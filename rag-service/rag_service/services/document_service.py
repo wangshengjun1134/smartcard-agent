@@ -38,6 +38,7 @@ class DocumentService:
         return DocumentResponse(
             id=record.id,
             kb_id=record.kb_id,
+            folder_id=record.folder_id,
             filename=record.filename,
             file_path=record.file_path,
             file_size=record.file_size,
@@ -62,6 +63,7 @@ class DocumentService:
         self,
         kb_id: str,
         filename: str,
+        folder_id: Optional[str] = None,
         file_path: Optional[str] = None,
         file_size: Optional[int] = None,
         mime_type: Optional[str] = None,
@@ -104,14 +106,14 @@ class DocumentService:
         cursor.execute(
             """
             INSERT INTO documents (
-                id, kb_id, filename, file_path, file_size, mime_type,
+                id, kb_id, folder_id, filename, file_path, file_size, mime_type,
                 file_hash, status, version, is_active, title, source,
                 language, tags, permissions, effective_from, effective_until,
                 custom_meta, created_at, updated_at, uploaded_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'uploaded', 1, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'uploaded', 1, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                doc_id, kb_id, filename, file_path, file_size, mime_type,
+                doc_id, kb_id, folder_id, filename, file_path, file_size, mime_type,
                 file_hash, title, source, language,
                 json.dumps(tags) if tags else None,
                 None,  # permissions
@@ -135,6 +137,7 @@ class DocumentService:
         record = DocumentRecord(
             id=row["id"],
             kb_id=row["kb_id"],
+            folder_id=row["folder_id"],
             filename=row["filename"],
             file_path=row["file_path"],
             file_size=row["file_size"],
@@ -183,6 +186,7 @@ class DocumentService:
         record = DocumentRecord(
             id=row["id"],
             kb_id=row["kb_id"],
+            folder_id=row["folder_id"],
             filename=row["filename"],
             file_path=row["file_path"],
             file_size=row["file_size"],
@@ -265,6 +269,7 @@ class DocumentService:
             record = DocumentRecord(
                 id=row["id"],
                 kb_id=row["kb_id"],
+                folder_id=row["folder_id"],
                 filename=row["filename"],
                 file_path=row["file_path"],
                 file_size=row["file_size"],

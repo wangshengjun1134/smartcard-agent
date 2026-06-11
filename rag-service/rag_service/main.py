@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from rag_service.api import files, rag
+from rag_service.api import files, rag, documents, knowledge_bases
 from rag_service.utils.database import init_knowledge_database
 from rag_service.config.logging import setup_logging
 
@@ -56,6 +56,8 @@ app.add_middleware(
 
 # Include API routers
 app.include_router(files.router, prefix="/api/files")
+app.include_router(documents.router, prefix="/api/documents")
+app.include_router(knowledge_bases.router, prefix="/api/knowledge-bases")
 app.include_router(rag.router, prefix="/api")
 
 

@@ -12,12 +12,14 @@ from rag_service.models.file import (
     RenameFileRequest,
 )
 from rag_service.services.file_service import FileService
+from rag_service.services.document_service import DocumentService
 
 
 router = APIRouter()
 
-# Create singleton file service instance
+# Create singleton service instances
 file_service = FileService()
+document_service = DocumentService()
 
 
 @router.get("/tree")
@@ -81,17 +83,20 @@ async def upload_file(
 async def get_file_detail(file_id: str) -> dict:
     """Get detailed information for a single file.
 
-    Args:
-        file_id: File ID to query.
-
-    Returns:
-        JSON response with file detail data.
+    Checks files table first (for folders), then documents table (for uploaded files).
     """
     try:
+        # Try files table first (for folders and legacy files)
         detail = file_service.get_file_detail(file_id)
-        if detail is None:
-            raise HTTPException(status_code=404, detail="File not found")
-        return {"status": "ok", "data": detail}
+        if detail is not None:
+            return {"status": "ok", "data": detail}
+
+        # Fall back to documents table
+        doc = document_service.get_document(file_id)
+        if doc is not None:
+            return {"status": "ok", "data": doc.model_dump()}
+
+        raise HTTPException(status_code=404, detail="File not found")
     except HTTPException:
         raise
     except Exception as e:
@@ -102,17 +107,20 @@ async def get_file_detail(file_id: str) -> dict:
 async def delete_file(file_id: str) -> dict:
     """Delete a file or folder.
 
-    Args:
-        file_id: File ID to delete.
-
-    Returns:
-        JSON response with deletion status.
+    Tries files table first, then documents table.
     """
     try:
+        # Try files table first
         result = file_service.delete_file(file_id)
-        if not result:
-            raise HTTPException(status_code=404, detail="File not found")
-        return {"status": "ok"}
+        if result:
+            return {"status": "ok"}
+
+        # Fall back to documents table
+        result = document_service.delete_document(file_id)
+        if result:
+            return {"status": "ok"}
+
+        raise HTTPException(status_code=404, detail="File not found")
     except HTTPException:
         raise
     except Exception as e:

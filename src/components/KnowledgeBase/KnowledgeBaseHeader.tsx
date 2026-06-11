@@ -1,11 +1,11 @@
-import { ViewMode } from '../../types/file';
+import { ViewMode, FileNode } from '../../types/file';
 import { ViewToggleButton } from './ViewToggleButton';
 
 interface KnowledgeBaseHeaderProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
-  onAddClick: () => void;
-  onCreateFolder: () => void;
+  onAddClick: (parentFolder?: FileNode) => void;
+  onCreateFolder: (parentFolder?: FileNode) => void;
 }
 
 /**
@@ -24,7 +24,7 @@ export function KnowledgeBaseHeader({
       <div className="flex items-center gap-2">
         {/* 新建文件夹按钮 */}
         <button
-          onClick={onCreateFolder}
+          onClick={() => onCreateFolder()}
           className="circle-btn w-[28px] h-[28px] text-[#666] dark:text-[#a0a0a0] hover:bg-[#ececee] dark:hover:bg-[#333333]"
           title="新建文件夹"
           aria-label="新建文件夹"
@@ -39,7 +39,7 @@ export function KnowledgeBaseHeader({
 
         {/* 添加文件按钮 */}
         <button
-          onClick={onAddClick}
+          onClick={() => onAddClick()}
           className="circle-btn w-[28px] h-[28px] bg-[#4b6ef3]/10 text-[#4b6ef3] hover:bg-[#4b6ef3]/20 dark:bg-[#4b6ef3]/20 dark:text-[#4b6ef3] dark:hover:bg-[#4b6ef3]/30"
           title="添加知识"
           aria-label="添加知识"
