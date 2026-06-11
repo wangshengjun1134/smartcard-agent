@@ -318,24 +318,28 @@
   }
 
   /* APDU 控制台日志滚动条 */
-  .apdu-log-list ::-webkit-scrollbar {
+  .apdu-console-log::-webkit-scrollbar {
     width: 8px;
   }
-  .apdu-log-list ::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.05);
+  .apdu-console-log::-webkit-scrollbar-track {
+    background: #f0f0f0;
   }
-  .apdu-log-list ::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.3);
+  .apdu-console-log::-webkit-scrollbar-thumb {
+    background: #999;
     border-radius: 4px;
   }
-  .apdu-log-list:hover ::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.5);
+  .apdu-console-log::-webkit-scrollbar-thumb:hover {
+    background: #666;
   }
-  .dark .apdu-log-list ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
+
+  .dark .apdu-console-log::-webkit-scrollbar-track {
+    background: #333;
   }
-  .dark .apdu-log-list:hover ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.5);
+  .dark .apdu-console-log::-webkit-scrollbar-thumb {
+    background: #666;
+  }
+  .dark .apdu-console-log::-webkit-scrollbar-thumb:hover {
+    background: #888;
   }
 
   /* 深色模式滚动条 */
