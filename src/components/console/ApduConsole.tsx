@@ -443,19 +443,19 @@ export default function ApduConsole({ embedded = false }: ApduConsoleProps) {
 
       <div className={`flex-1 flex flex-col overflow-hidden ${embedded ? '' : 'rounded-xl bg-white shadow-sm'}`}>
       {/* 头部 */}
-      <div className="bg-white px-4 h-[45px] flex items-center justify-end gap-3 flex-shrink-0">
-        {/* 读卡器选择 */}
-        <div className="relative flex items-center">
+      <div className="bg-white px-4 h-[45px] flex items-center gap-3 flex-shrink-0">
+        {/* 读卡器选择 - 动态宽度 */}
+        <div className="relative flex items-center flex-1 min-w-0">
           <button
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-transparent border-none rounded-md cursor-pointer text-sm text-[#333] transition-[background] duration-150 hover:bg-[#e5e5e5]"
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-transparent border-none rounded-md cursor-pointer text-sm text-[#333] transition-[background] duration-150 hover:bg-[#e5e5e5] w-full justify-between"
             onClick={handleToggleDropdown}
             title={selectedReader || undefined}
           >
-            <span>{selectedReader ? truncateReaderName(selectedReader) : '请选择读卡器'}</span>
+            <span className="truncate">{selectedReader ? truncateReaderName(selectedReader) : '请选择读卡器'}</span>
             <ChevronDownIcon />
           </button>
           {isDropdownOpen && (
-            <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg z-[1000] p-1 min-w-[360px] max-w-[calc(100vw-32px)]">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg z-[1000] p-1">
               {readers.map((reader) => (
                 <div
                   key={reader.name}
@@ -492,9 +492,9 @@ export default function ApduConsole({ embedded = false }: ApduConsoleProps) {
           )}
         </div>
 
-        {/* 刷新按钮 */}
+        {/* 刷新按钮 - 固定宽度 */}
         <button
-          className={`flex items-center gap-1.5 px-2.5 py-1 bg-transparent border-none rounded-md cursor-pointer text-sm transition-[background] duration-150 hover:bg-[#e5e5e5] text-[#333] ${
+          className={`flex items-center gap-1.5 px-2.5 py-1 bg-transparent border-none rounded-md cursor-pointer text-sm transition-[background] duration-150 hover:bg-[#e5e5e5] text-[#333] flex-shrink-0 whitespace-nowrap ${
             isRefreshing ? 'opacity-50 cursor-not-allowed' : ''
           }`}
           onClick={fetchReaders}
@@ -506,9 +506,9 @@ export default function ApduConsole({ embedded = false }: ApduConsoleProps) {
           <span>{isRefreshing ? '刷新中...' : '刷新'}</span>
         </button>
 
-        {/* 连接/断开按钮 */}
+        {/* 连接/断开按钮 - 固定宽度 */}
         <button
-          className={`flex items-center gap-1.5 px-2.5 py-1 bg-transparent border-none rounded-md cursor-pointer text-sm transition-[background] duration-150 hover:bg-[#e5e5e5] ${
+          className={`flex items-center gap-1.5 px-2.5 py-1 bg-transparent border-none rounded-md cursor-pointer text-sm transition-[background] duration-150 hover:bg-[#e5e5e5] flex-shrink-0 whitespace-nowrap ${
             isConnected ? 'text-[#4b6ef3]' : 'text-[#333]'
           } ${isConnecting ? 'opacity-50 cursor-not-allowed' : ''}`}
           onClick={handleToggleConnect}
