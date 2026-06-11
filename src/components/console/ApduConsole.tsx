@@ -508,10 +508,10 @@ export default function ApduConsole({ embedded = false }: ApduConsoleProps) {
 
       {/* 控制台内容 */}
       <style>{`
-        .apdu-scroll::-webkit-scrollbar { width: 8px; }
-        .apdu-scroll::-webkit-scrollbar-track { background: #e5e5e5; }
-        .apdu-scroll::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
-        .apdu-scroll::-webkit-scrollbar-thumb:hover { background: #555; }
+        .apdu-scroll::-webkit-scrollbar { width: 6px; }
+        .apdu-scroll::-webkit-scrollbar-track { background: transparent; }
+        .apdu-scroll::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 4px; }
+        .apdu-scroll::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.25); }
       `}</style>
       <div ref={consoleRef} className="apdu-scroll flex-1 p-4 overflow-y-auto bg-white" style={{ maxHeight: 'calc(100vh - 90px)' }}>
         {entries.length === 0 ? (
