@@ -1,6 +1,7 @@
 """Document API endpoints for knowledge base."""
 
 import hashlib
+import mimetypes
 from fastapi import APIRouter, File, UploadFile, HTTPException, Form
 from typing import Optional
 
@@ -80,6 +81,10 @@ async def upload_document(
         with open(disk_path, 'wb') as f:
             f.write(content)
 
+        # Detect MIME type using mimetypes module (more accurate than file.content_type)
+        detected_mime, _ = mimetypes.guess_type(file.filename or "unnamed")
+        mime_type = detected_mime or file.content_type or "application/octet-stream"
+
         # Parse tags from JSON string
         import json
         parsed_tags = None
@@ -96,7 +101,7 @@ async def upload_document(
             filename=file.filename or "unnamed",
             file_path=storage_path,
             file_size=len(content),
-            mime_type=file.content_type,
+            mime_type=mime_type,
             file_hash=file_hash,
             title=title or (file.filename or "unnamed"),
             source=source,

@@ -92,6 +92,7 @@ class DocumentResponse(BaseModel):
     createdAt: str
     updatedAt: str
     uploadedBy: Optional[str] = None
+    path: Optional[str] = None
 
 
 class DocumentListResponse(BaseModel):

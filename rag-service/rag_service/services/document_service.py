@@ -33,8 +33,57 @@ class DocumentService:
         except (json.JSONDecodeError, TypeError):
             return None
 
+    def _resolve_friendly_path(
+        self,
+        record: DocumentRecord,
+    ) -> str:
+        """Resolve a human-readable file path from IDs to names.
+
+        Resolves kb_id → knowledge base name, folder_id → folder names.
+        """
+        parts: list[str] = []
+
+        # Get knowledge base name
+        conn = get_knowledge_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT name FROM knowledge_bases WHERE id = ?",
+            (record.kb_id,)
+        )
+        row = cursor.fetchone()
+        if row:
+            parts.append(row["name"])
+
+        # Get folder hierarchy (from root to leaf)
+        if record.folder_id:
+            folders = []
+            current_id: str | None = record.folder_id
+            visited = set()
+            while current_id and current_id not in visited:
+                visited.add(current_id)
+                cursor.execute(
+                    "SELECT name, parent_id FROM files WHERE id = ? AND is_folder = 1 AND status = 'active'",
+                    (current_id,)
+                )
+                folder_row = cursor.fetchone()
+                if folder_row:
+                    folders.append(folder_row["name"])
+                    current_id = folder_row["parent_id"]
+                else:
+                    break
+            # Folders are leaf-to-root, reverse to get root-to-leaf
+            parts.extend(reversed(folders))
+
+        conn.close()
+
+        # Build path
+        if parts:
+            return "/" + "/".join(parts) + "/" + record.filename
+        return "/" + record.filename
+
     def _to_response(self, record: DocumentRecord) -> DocumentResponse:
         """Convert database record to API response."""
+        friendly_path = self._resolve_friendly_path(record)
         return DocumentResponse(
             id=record.id,
             kb_id=record.kb_id,
@@ -57,6 +106,7 @@ class DocumentService:
             createdAt=record.created_at,
             updatedAt=record.updated_at,
             uploadedBy=record.uploaded_by,
+            path=friendly_path,
         )
 
     def create_document(

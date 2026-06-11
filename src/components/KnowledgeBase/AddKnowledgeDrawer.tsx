@@ -10,6 +10,30 @@ import { KnowledgeForm } from './KnowledgeForm';
 import { KnowledgeBaseSelect } from './KnowledgeBaseSelect';
 import { DrawerFooter } from './DrawerFooter';
 
+/**
+ * 根据文件名检测 MIME 类型
+ */
+function detectMimeType(filename: string): string {
+  const ext = filename.toLowerCase().split('.').pop() || '';
+  const mimeMap: Record<string, string> = {
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    md: 'text/markdown',
+    markdown: 'text/markdown',
+    txt: 'text/plain',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    svg: 'image/svg+xml',
+  };
+  return mimeMap[ext] || 'application/octet-stream';
+}
+
 interface AddKnowledgeDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -73,10 +97,12 @@ export function AddKnowledgeDrawer({
   const handleFileSelect = useCallback(
     (selectedFile: File) => {
       selectFile(selectedFile);
-      // 自动填充文件名
+      // 自动填充文件名、大小、类型
       setFormData((prev) => ({
         ...prev,
         file_name: selectedFile.name,
+        file_size: selectedFile.size,
+        mime_type: selectedFile.type || detectMimeType(selectedFile.name),
       }));
     },
     [selectFile]
@@ -89,6 +115,8 @@ export function AddKnowledgeDrawer({
       ...prev,
       file_name: '',
       file_hash: '',
+      file_size: 0,
+      mime_type: '',
     }));
   }, [clearFile]);
 

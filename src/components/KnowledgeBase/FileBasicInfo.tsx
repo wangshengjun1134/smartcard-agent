@@ -1,7 +1,7 @@
 import { FileNode } from '../../types/file';
 
 interface FileBasicInfoProps {
-  file: FileNode;
+  file: FileNode & { file_size?: number; mime_type?: string; [key: string]: unknown };
 }
 
 /**
@@ -20,6 +20,25 @@ export function FileBasicInfo({ file }: FileBasicInfoProps) {
 
   // 获取文件类型显示名称
   const getTypeName = () => {
+    // 优先使用 MIME 类型 (API 返回 mime_type)
+    const mimeType = (file.mime_type as string) || file.mimeType;
+    if (mimeType) {
+      const mimeLabels: Record<string, string> = {
+        'application/pdf': 'PDF 文档',
+        'application/msword': 'Word 文档',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'Word 文档',
+        'application/vnd.ms-excel': 'Excel 表格',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'Excel 表格',
+        'text/plain': '文本文件',
+        'text/markdown': 'Markdown 文档',
+        'image/png': 'PNG 图片',
+        'image/jpeg': 'JPEG 图片',
+        'image/gif': 'GIF 图片',
+        'image/webp': 'WebP 图片',
+      };
+      return mimeLabels[mimeType] || mimeType;
+    }
+    // 回退到文件类型
     const typeNames: Record<string, string> = {
       folder: '文件夹',
       pdf: 'PDF 文档',
@@ -32,6 +51,9 @@ export function FileBasicInfo({ file }: FileBasicInfoProps) {
     return typeNames[file.type] || '未知类型';
   };
 
+  // 优先使用 API 返回的 file_size（documents 表）
+  const fileSize = (file.file_size as number) ?? file.size;
+
   return (
     <div className="info-section">
       <div className="section-title">基本信息</div>
@@ -43,7 +65,7 @@ export function FileBasicInfo({ file }: FileBasicInfoProps) {
 
       <div className="info-item">
         <div className="info-label">文件大小</div>
-        <div className="info-value">{formatSize(file.size)}</div>
+        <div className="info-value">{formatSize(fileSize)}</div>
       </div>
 
       <div className="info-item">

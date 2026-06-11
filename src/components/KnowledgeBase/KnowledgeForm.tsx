@@ -11,6 +11,17 @@ interface KnowledgeFormProps {
 }
 
 /**
+ * 格式化文件大小为易读格式
+ */
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
  * 知识库元数据表单组件
  * 字段与 documents 表结构保持一致
  */
@@ -63,6 +74,32 @@ export function KnowledgeForm({
             disabled
             placeholder="计算中..."
             className="form-input w-full px-3 py-2 border border-[#ececee] dark:border-[#333333] rounded-lg text-[13px] bg-[#f7f8fa] dark:bg-[#333333] text-[#1a1a1a] dark:text-white font-mono disabled:opacity-70"
+          />
+        </div>
+
+        {/* 文件大小 (只读) */}
+        <div className="form-field mb-3">
+          <label className="form-label block text-[13px] text-[#4a4a4a] dark:text-[#b3b3b3] mb-1">
+            文件大小
+          </label>
+          <input
+            type="text"
+            value={formData.file_size ? formatFileSize(formData.file_size) : ''}
+            disabled
+            className="form-input w-full px-3 py-2 border border-[#ececee] dark:border-[#333333] rounded-lg text-[13px] bg-[#f7f8fa] dark:bg-[#333333] text-[#1a1a1a] dark:text-white disabled:opacity-70"
+          />
+        </div>
+
+        {/* MIME 类型 (只读) */}
+        <div className="form-field mb-3">
+          <label className="form-label block text-[13px] text-[#4a4a4a] dark:text-[#b3b3b3] mb-1">
+            文件类型
+          </label>
+          <input
+            type="text"
+            value={formData.mime_type || ''}
+            disabled
+            className="form-input w-full px-3 py-2 border border-[#ececee] dark:border-[#333333] rounded-lg text-[13px] bg-[#f7f8fa] dark:bg-[#333333] text-[#1a1a1a] dark:text-white disabled:opacity-70"
           />
         </div>
       </div>

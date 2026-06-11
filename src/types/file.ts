@@ -20,6 +20,7 @@ export interface FileNode {
   path: string;                // 文件路径
   isFolder: boolean;           // 是否文件夹
   size?: number;               // 文件大小 (字节)
+  mimeType?: string;           // MIME 类型
   createdAt?: string;          // 创建时间
   modifiedAt?: string;         // 修改时间
   children?: FileNode[];       // 子节点 (文件夹才有)

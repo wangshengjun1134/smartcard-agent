@@ -58,6 +58,8 @@ export interface KnowledgeFormData {
   // 自动填充字段
   file_name: string;        // 原始文件名
   file_hash: string;        // 文件哈希 (SHA-256)
+  file_size: number;        // 文件大小 (字节)
+  mime_type: string;        // MIME 类型
 
   // documents 表字段
   title: string;            // 文档标题 (必填)
@@ -97,6 +99,8 @@ export const LANGUAGES: SelectOption[] = [
 export const DEFAULT_FORM_DATA: KnowledgeFormData = {
   file_name: '',
   file_hash: '',
+  file_size: 0,
+  mime_type: '',
   title: '',
   source: '',
   language: 'zh',

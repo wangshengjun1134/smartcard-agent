@@ -80,7 +80,7 @@ export function FileDetailDrawer({ file, isOpen, onClose }: FileDetailDrawerProp
           ) : detail ? (
             <>
               {/* 基本信息 */}
-              <FileBasicInfo file={detail} />
+              <FileBasicInfo file={detail as any} />
 
               {/* 向量分片 */}
               <VectorChunksList detail={detail} />

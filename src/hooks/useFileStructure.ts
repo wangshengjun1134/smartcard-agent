@@ -52,6 +52,7 @@ export function useFileStructure(): UseFileStructureReturn {
             path: doc.file_path || '',
             isFolder: false,
             size: doc.file_size,
+            mimeType: doc.mime_type,
             createdAt: doc.createdAt,
             modifiedAt: doc.updatedAt,
             _folderId: doc.folder_id || null, // 用于挂载到对应文件夹
