@@ -1,6 +1,7 @@
 """File API endpoints for knowledge base."""
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, Form
+from pydantic import BaseModel
 from typing import Optional
 
 from rag_service.models.file import (
@@ -8,6 +9,7 @@ from rag_service.models.file import (
     FileDetail,
     CreateFolderRequest,
     MoveFileRequest,
+    RenameFileRequest,
 )
 from rag_service.services.file_service import FileService
 
@@ -90,6 +92,51 @@ async def get_file_detail(file_id: str) -> dict:
         if detail is None:
             raise HTTPException(status_code=404, detail="File not found")
         return {"status": "ok", "data": detail}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/{file_id}")
+async def delete_file(file_id: str) -> dict:
+    """Delete a file or folder.
+
+    Args:
+        file_id: File ID to delete.
+
+    Returns:
+        JSON response with deletion status.
+    """
+    try:
+        result = file_service.delete_file(file_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="File not found")
+        return {"status": "ok"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/{file_id}/rename")
+async def rename_file(file_id: str, request: RenameFileRequest) -> dict:
+    """Rename a file or folder.
+
+    Args:
+        file_id: File ID to rename.
+        request: Rename request with new name.
+
+    Returns:
+        JSON response with updated file data.
+    """
+    try:
+        result = await file_service.rename_file(file_id, request.name)
+        if result is None:
+            raise HTTPException(status_code=404, detail="File not found")
+        return {"status": "ok", "data": result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:

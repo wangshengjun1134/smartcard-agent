@@ -1,4 +1,4 @@
-"""Database utilities for Agent service (session.db only)."""
+"""Database utilities for Agent service (message.db only)."""
 
 import sqlite3
 from pathlib import Path
@@ -9,15 +9,15 @@ def get_session_db_connection(db_path: Optional[Path] = None) -> sqlite3.Connect
     """Get a SQLite database connection for session/message storage.
 
     Args:
-        db_path: Optional custom database path. Defaults to data/session.db.
+        db_path: Optional custom database path. Defaults to data/message.db.
 
     Returns:
         SQLite connection object.
     """
     if db_path is None:
-        # Path: agent-service/src/utils/database.py -> agent-service/data
+        # Path: agent-service/agent_service/utils/database.py -> project-root/data
         base_path = Path(__file__).parent.parent.parent.parent / "data"
-        db_path = base_path / "session.db"
+        db_path = base_path / "message.db"
 
     # Ensure data directory exists
     db_path.parent.mkdir(parents=True, exist_ok=True)

@@ -151,7 +151,7 @@ export function useFileOperations(): UseFileOperationsReturn {
 
       const data = await response.json();
 
-      if (data.status === 'ok' && data.data?.deleted) {
+      if (data.status === 'ok') {
         setOperationState({ loading: false, error: null });
         return true;
       } else {

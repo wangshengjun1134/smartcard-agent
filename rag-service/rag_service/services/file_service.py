@@ -428,6 +428,41 @@ class FileService:
 
         return ids
 
+    def delete_file(self, file_id: str) -> bool:
+        """Delete a file or folder (soft delete by setting status='deleted').
+
+        If the file is a folder, all descendants are also soft-deleted.
+        Physical files remain on disk.
+
+        Args:
+            file_id: File/folder ID to delete.
+
+        Returns:
+            True if deleted, False if not found.
+        """
+        file_record = self.get_file_record(file_id)
+        if file_record is None:
+            return False
+
+        # Collect all descendant IDs for folders
+        ids_to_delete = [file_id]
+        if file_record.is_folder:
+            ids_to_delete.extend(self._get_all_children_ids(file_id))
+
+        # Soft delete: set status = 'deleted'
+        timestamp = self._get_timestamp()
+        conn = get_knowledge_db_connection()
+        cursor = conn.cursor()
+        placeholders = ",".join("?" for _ in ids_to_delete)
+        cursor.execute(
+            f"UPDATE files SET status = 'deleted', modified_at = ? WHERE id IN ({placeholders})",
+            [timestamp] + ids_to_delete
+        )
+        conn.commit()
+        conn.close()
+
+        return True
+
     async def move_file(
         self,
         file_id: str,
@@ -499,6 +534,77 @@ class FileService:
                 child = self.get_file_record(child_id)
                 if child and child.storage_path:
                     # Replace old path prefix with new path prefix
+                    new_child_path = child.storage_path.replace(
+                        old_storage_path, new_storage_path, 1
+                    )
+                    cursor.execute(
+                        "UPDATE files SET storage_path = ?, modified_at = ? WHERE id = ?",
+                        (new_child_path, timestamp, child_id)
+                    )
+
+        conn.commit()
+        conn.close()
+
+        # Return updated node
+        updated_record = self.get_file_record(file_id)
+        if updated_record:
+            children = self._get_children(file_id) if updated_record.is_folder else None
+            return updated_record.to_file_node(children)
+        return None
+
+    async def rename_file(
+        self,
+        file_id: str,
+        new_name: str,
+    ) -> Optional[FileNode]:
+        """Rename a file or folder.
+
+        Args:
+            file_id: File/folder ID to rename.
+            new_name: New display name.
+
+        Returns:
+            Updated FileNode or None if not found.
+        """
+        file_record = self.get_file_record(file_id)
+        if file_record is None:
+            return None
+
+        # Sanitize and resolve name conflict
+        sanitized_name = self._sanitize_name(new_name)
+        final_name = self._resolve_name_conflict(file_record.parent_id, sanitized_name)
+
+        # Build new storage path
+        old_storage_path = file_record.storage_path
+        new_storage_path = self._build_storage_path(file_record.parent_id, final_name)
+
+        # Rename on disk
+        old_disk_path = self.storage_root / old_storage_path
+        new_disk_path = self.storage_root / new_storage_path
+
+        if old_disk_path.exists():
+            new_disk_path.parent.mkdir(parents=True, exist_ok=True)
+            await aiofiles.os.rename(old_disk_path, new_disk_path)
+
+        # Update database
+        timestamp = self._get_timestamp()
+        conn = get_knowledge_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE files
+            SET name = ?, storage_path = ?, modified_at = ?
+            WHERE id = ?
+            """,
+            (final_name, new_storage_path, timestamp, file_id)
+        )
+
+        # If folder, update all descendants' storage_path
+        if file_record.is_folder:
+            children_ids = self._get_all_children_ids(file_id)
+            for child_id in children_ids:
+                child = self.get_file_record(child_id)
+                if child and child.storage_path:
                     new_child_path = child.storage_path.replace(
                         old_storage_path, new_storage_path, 1
                     )

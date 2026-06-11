@@ -16,7 +16,7 @@
 pip install -e .
 
 # 运行服务（在 agent-service 目录下）
-python3 -m uvicorn src.main:app --host 127.0.0.1 --port 8001 --reload
+python3 -m uvicorn agent_service.main:app --host 127.0.0.1 --port 8001 --reload
 ```
 
 ## API 端点
@@ -29,7 +29,7 @@ python3 -m uvicorn src.main:app --host 127.0.0.1 --port 8001 --reload
 
 ## 数据目录
 
-- `data/session.db` - 会话数据库
+- `data/message.db` - 会话/消息数据库
 - `data/checkpoints/` - 状态检查点
 - `.skills/` - 技能插件目录
 

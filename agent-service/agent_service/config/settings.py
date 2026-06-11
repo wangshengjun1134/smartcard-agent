@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     AGENT_MAX_TIME_MINUTES: float = 10.0
 
     # Session Database
-    SESSION_DB_PATH: str = "./data/session.db"
+    SESSION_DB_PATH: str = "./data/message.db"
 
     # Skills Directory
     SKILLS_DIR: str = "./.skills"

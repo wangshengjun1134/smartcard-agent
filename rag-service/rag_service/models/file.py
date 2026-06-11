@@ -167,6 +167,12 @@ class MoveFileRequest(BaseModel):
     target_folder_id: Optional[str] = None
 
 
+class RenameFileRequest(BaseModel):
+    """Request model for renaming a file."""
+
+    name: str
+
+
 class UploadResponse(BaseModel):
     """Response model for file upload."""
 
