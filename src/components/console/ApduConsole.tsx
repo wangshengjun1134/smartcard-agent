@@ -507,7 +507,7 @@ export default function ApduConsole({ embedded = false }: ApduConsoleProps) {
       </div>
 
       {/* 控制台内容 */}
-      <div ref={consoleRef} className="flex-1 p-4 overflow-y-auto bg-white">
+      <div ref={consoleRef} className="flex-1 p-4 overflow-y-auto bg-white apdu-log-list">
         {entries.length === 0 ? (
           <div className="text-center text-[#999] py-10 text-sm font-mono italic">
             等待 APDU 指令...

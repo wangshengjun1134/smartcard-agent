@@ -317,6 +317,14 @@
     background: rgba(0, 0, 0, 0.25);
   }
 
+  /* APDU 控制台日志滚动条 */
+  .apdu-log-list ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+  }
+  .apdu-log-list:hover ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.35);
+  }
+
   /* 深色模式滚动条 */
   .dark ::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.15);
