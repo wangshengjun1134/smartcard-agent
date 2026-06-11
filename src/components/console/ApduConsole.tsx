@@ -507,7 +507,13 @@ export default function ApduConsole({ embedded = false }: ApduConsoleProps) {
       </div>
 
       {/* 控制台内容 */}
-      <div ref={consoleRef} className="apdu-console-log flex-1 p-4 overflow-y-auto bg-white">
+      <style>{`
+        .apdu-scroll::-webkit-scrollbar { width: 8px; }
+        .apdu-scroll::-webkit-scrollbar-track { background: #e5e5e5; }
+        .apdu-scroll::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        .apdu-scroll::-webkit-scrollbar-thumb:hover { background: #555; }
+      `}</style>
+      <div ref={consoleRef} className="apdu-scroll flex-1 p-4 overflow-y-auto bg-white" style={{ maxHeight: 'calc(100vh - 90px)' }}>
         {entries.length === 0 ? (
           <div className="text-center text-[#999] py-10 text-sm font-mono italic">
             等待 APDU 指令...
