@@ -83,7 +83,8 @@ openspec/changes/
 
 # Qwen Code local skills
 .qwen/skills/  
-# Build artifacts 
-python-service/*.spec 
-python-service/.venv 
-src-tauri/gen/ 
+# Build artifacts
+python-service/*.spec
+.venv
+python-service/.venv
+src-tauri/gen/

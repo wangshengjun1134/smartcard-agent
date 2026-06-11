@@ -1,7 +1,7 @@
 """Read ICCID from smart card."""
 
-from skills.base.base_skill import BaseSkill, SkillResult
-from skills.base.apdu import SelectFile, ReadBinary
+from agent_service.skills.base.base_skill import BaseSkill, SkillResult
+from agent_service.skills.base.apdu import SelectFile, ReadBinary
 
 
 class ReadICCIDSkill(BaseSkill):
