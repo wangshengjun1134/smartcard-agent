@@ -455,7 +455,7 @@ export default function ApduConsole({ embedded = false }: ApduConsoleProps) {
             <ChevronDownIcon />
           </button>
           {isDropdownOpen && (
-            <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg z-[1000] p-1 min-w-[360px]">
+            <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg z-[1000] p-1 min-w-[360px] max-w-[calc(100vw-32px)]">
               {readers.map((reader) => (
                 <div
                   key={reader.name}
