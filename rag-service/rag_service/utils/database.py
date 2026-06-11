@@ -37,7 +37,7 @@ def init_knowledge_database(db_path: Optional[Path] = None) -> None:
     conn = get_knowledge_db_connection(db_path)
     cursor = conn.cursor()
 
-    # Create files table
+    # Create files table (legacy, kept for backward compatibility)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS files (
             id TEXT PRIMARY KEY,
@@ -57,10 +57,99 @@ def init_knowledge_database(db_path: Optional[Path] = None) -> None:
         )
     """)
 
-    # Create indexes
+    # Create indexes for files
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_parent_id ON files(parent_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_name ON files(name)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_status ON files(status)")
+
+    # Create knowledge_bases table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS knowledge_bases (
+            id          TEXT PRIMARY KEY,
+            name        TEXT NOT NULL UNIQUE,
+            description TEXT,
+            created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+    """)
+
+    # Create documents table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS documents (
+            id              TEXT PRIMARY KEY,
+            kb_id           TEXT NOT NULL REFERENCES knowledge_bases(id),
+            filename        TEXT NOT NULL,
+            file_path       TEXT,
+            file_size       INTEGER,
+            mime_type       TEXT,
+            file_hash       TEXT,
+            status          TEXT NOT NULL DEFAULT 'uploaded',
+            error_message   TEXT,
+            version         INTEGER NOT NULL DEFAULT 1,
+            is_active       INTEGER NOT NULL DEFAULT 1,
+            title           TEXT,
+            source          TEXT,
+            language        TEXT DEFAULT 'zh',
+            tags            TEXT,
+            permissions     TEXT,
+            effective_from  TEXT,
+            effective_until TEXT,
+            custom_meta     TEXT,
+            created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+            uploaded_by     TEXT
+        )
+    """)
+
+    # Create chunks table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS chunks (
+            id              TEXT PRIMARY KEY,
+            doc_id          TEXT NOT NULL REFERENCES documents(id),
+            kb_id           TEXT NOT NULL REFERENCES knowledge_bases(id),
+            chunk_index     INTEGER NOT NULL,
+            content         TEXT NOT NULL,
+            char_count      INTEGER,
+            token_count     INTEGER,
+            meta            TEXT,
+            embedding_model TEXT,
+            embedding_status TEXT NOT NULL DEFAULT 'pending',
+            created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(doc_id, chunk_index)
+        )
+    """)
+
+    # Create processing_logs table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS processing_logs (
+            id          TEXT PRIMARY KEY,
+            doc_id      TEXT NOT NULL REFERENCES documents(id),
+            action      TEXT NOT NULL,
+            status      TEXT NOT NULL,
+            details     TEXT,
+            started_at  TEXT,
+            finished_at TEXT
+        )
+    """)
+
+    # Create indexes
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_documents_kb_id ON documents(kb_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_documents_is_active ON documents(is_active)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON chunks(doc_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_kb_id ON chunks(kb_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_embedding_status ON chunks(embedding_status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_processing_logs_doc_id ON processing_logs(doc_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_processing_logs_status ON processing_logs(status)")
+
+    # Seed default knowledge base if not exists
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO knowledge_bases (id, name, description, created_at, updated_at)
+        VALUES (?, 'smartcard spec', 'smartcard spec', datetime('now'), datetime('now'))
+        """,
+        ("00000000-0000-0000-0000-000000000001",)
+    )
 
     conn.commit()
     conn.close()
