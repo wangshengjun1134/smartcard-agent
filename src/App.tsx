@@ -36,59 +36,52 @@ function App() {
   const [showApduConsole, setShowApduConsole] = useState(false); // APDU 控制台面板显示状态
   const originalWindowWidthRef = useRef<number | null>(null); // 记录原始窗口宽度
   const [chatAreaFixedWidth, setChatAreaFixedWidth] = useState<number | null>(null); // 会话区域固定宽度（像素）
-  const [isMaximizedState, setIsMaximizedState] = useState(false); // 记录最大化状态
-  const [usedProportionalLayout, setUsedProportionalLayout] = useState(false); // 记录是否使用了比例布局
+  const [windowSizeAdjusted, setWindowSizeAdjusted] = useState(false); // 记录是否调整了窗口大小
 
-  // 切换 APDU 控制台显示（带窗口大小调整）
+  // 侧边栏固定宽度
+  const SIDEBAR_WIDTH = 260;
+
+  // 切换 APDU 控制台显示（带窗口大小调整和居中）
   const toggleApduConsole = async () => {
     const appWindow = getCurrentWebviewWindow();
     const currentSize = await appWindow.innerSize();
     const isMaximized = await appWindow.isMaximized();
 
-    // 侧边栏宽度：展开时 260px，收起时 0px
-    const sidebarWidth = sidebarOpen ? 260 : 0;
-
-    // 获取屏幕可用宽度
-    const screenWidth = window.screen.availWidth;
-
     if (!showApduConsole) {
-      // 显示控制台：
-      // 记录当前窗口宽度和最大化状态
+      // 显示控制台
       originalWindowWidthRef.current = currentSize.width;
-      setIsMaximizedState(isMaximized);
 
-      // 计算会话区域宽度（像素）
-      const chatWidth = currentSize.width - sidebarWidth;
-
-      // 计算新窗口宽度（如果调整）
-      const newWidth = Math.round(sidebarWidth + chatWidth + chatWidth * 0.5);
-
-      // 判断是否需要使用比例布局（最大化或新宽度超出屏幕）
-      const needProportionalLayout = isMaximized || newWidth > screenWidth;
-
-      if (needProportionalLayout) {
-        // 无法调整窗口大小，使用比例布局
-        // 会话区域占 2/3，控制台占 1/3
-        const proportionalWidth = Math.round(chatWidth * 0.667);
-        setChatAreaFixedWidth(proportionalWidth);
-        setUsedProportionalLayout(true);
+      if (isMaximized) {
+        // 最大化状态：使用比例布局，会话 2/3，控制台 1/3
+        const chatWidth = Math.round(currentSize.width - SIDEBAR_WIDTH);
+        setChatAreaFixedWidth(Math.round(chatWidth * 2 / 3));
+        setWindowSizeAdjusted(false);
       } else {
-        // 可以调整窗口大小
+        // 非最大化：调整窗口大小并居中
+        const chatWidth = Math.round(currentSize.width - SIDEBAR_WIDTH);
+        const consoleWidth = Math.round(chatWidth * 0.5);
+        const newWidth = Math.round(currentSize.width + consoleWidth);
+
         await appWindow.setSize(new PhysicalSize(newWidth, currentSize.height));
+        // 等待窗口大小调整完成后再居中
+        await new Promise(resolve => setTimeout(resolve, 50));
+        await appWindow.center();
+
         setChatAreaFixedWidth(chatWidth);
-        setUsedProportionalLayout(false);
+        setWindowSizeAdjusted(true);
       }
+
       setShowApduConsole(true);
-    } else if (originalWindowWidthRef.current !== null) {
+    } else {
       // 隐藏控制台
-      if (!isMaximizedState && !usedProportionalLayout) {
-        // 非最大化且非比例布局：恢复原始窗口宽度
+      if (windowSizeAdjusted && originalWindowWidthRef.current) {
         await appWindow.setSize(new PhysicalSize(originalWindowWidthRef.current, currentSize.height));
+        await new Promise(resolve => setTimeout(resolve, 50));
+        await appWindow.center();
       }
       originalWindowWidthRef.current = null;
-      setIsMaximizedState(false);
-      setUsedProportionalLayout(false);
       setChatAreaFixedWidth(null);
+      setWindowSizeAdjusted(false);
       setShowApduConsole(false);
     }
   };
@@ -280,14 +273,21 @@ function App() {
     const chatAreaStyle = showApduConsole && chatAreaFixedWidth
       ? { width: `${chatAreaFixedWidth}px` }
       : {};
-    const consoleWidth = chatAreaFixedWidth ? Math.round(chatAreaFixedWidth * 0.5) : 0;
+
+    // 控制台宽度：如果窗口调整了，使用固定宽度；否则自动填充剩余空间
+    const consoleStyle = windowSizeAdjusted && chatAreaFixedWidth
+      ? { width: `${Math.round(chatAreaFixedWidth * 0.5)}px` }
+      : {};
+
+    // 只有当 chatAreaFixedWidth 有值时才算真正显示控制台
+    const isConsoleVisible = showApduConsole && chatAreaFixedWidth !== null;
 
     return (
       <div className="flex-1 flex min-h-0">
         {/* 主聊天区域 - 显示控制台时使用固定宽度，隐藏时占全宽 */}
         <div
-          className={`flex flex-col min-h-0 ${showApduConsole ? '' : 'flex-1'}`}
-          style={chatAreaStyle}
+          className={`flex flex-col min-h-0 ${isConsoleVisible ? 'flex-shrink-0' : 'flex-1'}`}
+          style={isConsoleVisible ? chatAreaStyle : {}}
         >
           {/* 聊天顶部栏 */}
           <ChatHeader
@@ -334,12 +334,12 @@ function App() {
           )}
         </div>
 
-        {/* APDU 控制台面板 - 仅在 Chat 视图且 showApduConsole 为 true 时显示 */}
-        {/* 控制台宽度为会话区域的 50%（固定像素宽度） */}
-        {showApduConsole && consoleWidth > 0 && (
+        {/* APDU 控制台面板 */}
+        {/* 窗口调整时：固定宽度（会话的 50%）；否则：自动填充剩余空间 */}
+        {isConsoleVisible && (
           <div
-            className="flex-shrink-0 min-h-0 border-l border-gray-200"
-            style={{ width: `${consoleWidth}px` }}
+            className={`min-h-0 border-l border-gray-200 ${windowSizeAdjusted ? 'flex-shrink-0' : 'flex-1'}`}
+            style={consoleStyle}
           >
             <ApduConsole embedded={true} />
           </div>
