@@ -443,15 +443,15 @@ export default function ApduConsole({ embedded = false }: ApduConsoleProps) {
 
       <div className={`flex-1 flex flex-col overflow-hidden ${embedded ? '' : 'rounded-xl bg-white shadow-sm'}`}>
       {/* 头部 */}
-      <div className="bg-white px-4 h-[45px] flex items-center gap-3 flex-shrink-0">
-        {/* 读卡器选择 - 动态宽度 */}
-        <div className="relative flex items-center flex-1 min-w-0">
+      <div className="bg-white px-4 h-[45px] flex items-center gap-3 flex-shrink-0 overflow-hidden">
+        {/* 读卡器选择 - 动态宽度，最大限制 */}
+        <div className="relative flex items-center flex-1 min-w-[120px] max-w-[300px]">
           <button
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-transparent border-none rounded-md cursor-pointer text-sm text-[#333] transition-[background] duration-150 hover:bg-[#e5e5e5] w-full justify-between"
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-transparent border-none rounded-md cursor-pointer text-sm text-[#333] transition-[background] duration-150 hover:bg-[#e5e5e5] w-full justify-between overflow-hidden"
             onClick={handleToggleDropdown}
             title={selectedReader || undefined}
           >
-            <span className="truncate">{selectedReader ? truncateReaderName(selectedReader) : '请选择读卡器'}</span>
+            <span className="truncate flex-shrink min-w-0">{selectedReader ? truncateReaderName(selectedReader) : '请选择读卡器'}</span>
             <ChevronDownIcon />
           </button>
           {isDropdownOpen && (
