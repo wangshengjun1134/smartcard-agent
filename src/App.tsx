@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useSessions } from './hooks/useSessions';
 import { AppLayout } from './components/layout/AppLayout';
 import { Sidebar, ViewType } from './components/Sidebar/Sidebar';
@@ -40,6 +40,36 @@ function App() {
 
   // 侧边栏固定宽度
   const SIDEBAR_WIDTH = 260;
+
+  // 监听窗口大小变化，调整控制台布局
+  useEffect(() => {
+    if (!showApduConsole) return;
+
+    const appWindow = getCurrentWebviewWindow();
+    let prevMaximized: boolean | null = null;
+
+    const unlisten = appWindow.onResized(async () => {
+      const isMaximized = await appWindow.isMaximized();
+      // 只在最大化状态变化时调整布局
+      if (prevMaximized !== null && prevMaximized !== isMaximized) {
+        const currentSize = await appWindow.innerSize();
+        const chatWidth = Math.round(currentSize.width - SIDEBAR_WIDTH);
+        // 最大化或取消最大化都使用比例布局
+        setChatAreaFixedWidth(Math.round(chatWidth * 2 / 3));
+        setWindowSizeAdjusted(false);
+      }
+      prevMaximized = isMaximized;
+    });
+
+    // 初始化当前最大化状态
+    appWindow.isMaximized().then(maximized => {
+      prevMaximized = maximized;
+    });
+
+    return () => {
+      unlisten.then(fn => fn());
+    };
+  }, [showApduConsole]);
 
   // 切换 APDU 控制台显示（带窗口大小调整和居中）
   const toggleApduConsole = async () => {
