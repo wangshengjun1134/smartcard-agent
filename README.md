@@ -212,6 +212,33 @@ SSE 事件类型: `thinking`, `thinking_chunk`, `tool_call`, `tool_result`, `con
 
 LangChain RAG 链: 检索 → 格式化 → LLM 生成 (qwen3.5-plus)
 
+## 数据目录
+
+项目根目录下的 `data/` 目录用于存放所有运行时数据，已被 `.gitignore` 排除（模型文件体积较大，约 34GB）。
+
+```
+data/
+├── models/                    # AI 模型（不提交到 git）
+│   ├── bge-m3/                # BGE-m3 Embedding 模型 (~2GB)
+│   ├── docling/               # Docling PDF 解析模型 (~30GB+)
+│   │   ├── docling-layout-heron/          # 版面分析模型（必需）
+│   │   ├── docling-models/                # TableFormer 表格识别
+│   │   ├── CodeFormulaV2/                 # 代码/公式识别（可选）
+│   │   ├── granite-docling-258M/          # Granite Docling 模型
+│   │   └── ...                            # 其他可选模型
+│   └── yolo_x_layout/         # YOLOX 版面分析模型 (~500MB)
+├── docs/                      # 用户上传的知识库文件
+│   └── GP规范/
+│       └── GPC_Specification_v2.3.pdf
+├── qdrant/                    # Qdrant 向量数据库 (~2MB)
+├── message.db                 # Agent 服务会话/消息数据库 (~636KB)
+├── knowledge.db               # RAG 服务元数据库 (~412KB)
+└── session.db                 # 旧版会话数据库 (~48KB)
+```
+
+> **注意**: `data/` 目录下的模型文件体积较大（总计约 34GB），首次运行服务时会自动从 HuggingFace 下载所需模型。
+> 国内网络可使用镜像站加速，详见各服务的 README 中模型配置说明。
+
 ## 配置
 
 通过 `.env` 文件配置，复制 `.env.example` 并修改：
