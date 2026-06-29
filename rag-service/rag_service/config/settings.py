@@ -35,8 +35,11 @@ class Settings(BaseSettings):
     EMBEDDING_DEVICE: str = "cpu"
 
     # Vector Database
-    VECTOR_DB_PATH: str = "./data/qdrant"
-    VECTOR_DB_COLLECTION: str = "smartcard_knowledge"
+    VECTOR_DB_HOST: str = "localhost"
+    VECTOR_DB_PORT: int = 6333
+    VECTOR_DB_GRPC_PORT: int = 6334
+    VECTOR_DB_COLLECTION: str = "knowledge_base"
+    VECTOR_DB_PREFER_GRPC: bool = False
 
     # RAG Configuration
     RAG_TOP_K: int = 5
@@ -59,6 +62,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+        extra = "ignore"  # Ignore extra env vars not defined in this model
 
 
 # Global settings instance
