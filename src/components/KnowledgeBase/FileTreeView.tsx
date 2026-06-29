@@ -9,7 +9,8 @@ interface FileTreeViewProps {
   onFileClick: (file: FileNode) => void;
   onRename?: (file: FileNode, newName: string) => void;
   onDelete?: (file: FileNode) => void;
-  onVectorize?: (file: FileNode) => void;
+  onChunk?: (file: FileNode) => void;
+  onEmbedding?: (file: FileNode) => void;
   onStartEdit?: (file: FileNode) => void;
   onCancelEdit?: () => void;
   onCreateFolder?: (parentFolder?: FileNode) => void;
@@ -27,7 +28,8 @@ export function FileTreeView({
   onFileClick,
   onRename,
   onDelete,
-  onVectorize,
+  onChunk,
+  onEmbedding,
   onStartEdit,
   onCancelEdit,
   onCreateFolder,
@@ -63,7 +65,8 @@ export function FileTreeView({
           onFileClick={onFileClick}
           onRename={onRename}
           onDelete={onDelete}
-          onVectorize={onVectorize}
+          onChunk={onChunk}
+          onEmbedding={onEmbedding}
           onStartEdit={onStartEdit}
           onCancelEdit={onCancelEdit}
           onCreateFolder={onCreateFolder}

@@ -13,7 +13,8 @@ interface FileTreeItemProps {
   onFileClick: (node: FileNode) => void;
   onRename?: (file: FileNode, newName: string) => void;
   onDelete?: (file: FileNode) => void;
-  onVectorize?: (file: FileNode) => void;
+  onChunk?: (file: FileNode) => void;
+  onEmbedding?: (file: FileNode) => void;
   onStartEdit?: (file: FileNode) => void;
   onCancelEdit?: () => void;
   onCreateFolder?: (parentFolder?: FileNode) => void;
@@ -34,7 +35,8 @@ export function FileTreeItem({
   onFileClick,
   onRename,
   onDelete,
-  onVectorize,
+  onChunk,
+  onEmbedding,
   onStartEdit,
   onCancelEdit,
   onCreateFolder,
@@ -60,7 +62,8 @@ export function FileTreeItem({
       ]
     : [
         { id: 'open', label: '打开', icon: 'fa-regular fa-file' },
-        { id: 'vectorize', label: '向量化', icon: 'fa-regular fa-bolt' },
+        { id: 'chunk', label: 'Chunk', icon: 'fa-regular fa-bolt' },
+        { id: 'embedding', label: 'Embedding', icon: 'fa-regular fa-layer-group' },
         { id: 'divider', label: '', divider: true },
         { id: 'rename', label: '重命名', icon: 'fa-regular fa-pen' },
         { id: 'divider2', label: '', divider: true },
@@ -84,8 +87,11 @@ export function FileTreeItem({
           onFileClick(node);
         }
         break;
-      case 'vectorize':
-        onVectorize?.(node);
+      case 'chunk':
+        onChunk?.(node);
+        break;
+      case 'embedding':
+        onEmbedding?.(node);
         break;
       case 'newFolder':
         onCreateFolder?.(node);
@@ -201,6 +207,8 @@ export function FileTreeItem({
               onFileClick={onFileClick}
               onRename={onRename}
               onDelete={onDelete}
+              onChunk={onChunk}
+              onEmbedding={onEmbedding}
               onStartEdit={onStartEdit}
               onCancelEdit={onCancelEdit}
               onCreateFolder={onCreateFolder}

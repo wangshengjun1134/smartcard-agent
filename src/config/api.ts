@@ -89,12 +89,13 @@ export const API_CONFIG = {
  * @returns Base URL for the service
  */
 function getBaseUrlForPath(path: string): string {
-  // RAG service handles files, documents, knowledge-bases, and rag endpoints
+  // RAG service handles files, documents, knowledge-bases, rag, and chunks endpoints
   if (
     path.startsWith('/api/files') ||
     path.startsWith('/api/documents') ||
     path.startsWith('/api/knowledge-bases') ||
-    path.startsWith('/api/rag')
+    path.startsWith('/api/rag') ||
+    path.startsWith('/api/chunks')
   ) {
     return RAG_BASE_URL;
   }

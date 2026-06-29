@@ -15,7 +15,8 @@ interface FileIconItemProps {
   editing?: boolean;
   onRename?: (file: FileNode, newName: string) => void;
   onDelete?: (file: FileNode) => void;
-  onVectorize?: (file: FileNode) => void;
+  onChunk?: (file: FileNode) => void;
+  onEmbedding?: (file: FileNode) => void;
   onStartEdit?: (file: FileNode) => void;
   onCancelEdit?: () => void;
 }
@@ -36,7 +37,8 @@ export function FileIconItem({
   editing = false,
   onRename,
   onDelete,
-  onVectorize,
+  onChunk,
+  onEmbedding,
   onStartEdit,
   onCancelEdit,
 }: FileIconItemProps) {
@@ -55,7 +57,8 @@ export function FileIconItem({
       ]
     : [
         { id: 'open', label: '打开', icon: 'fa-regular fa-file' },
-        { id: 'vectorize', label: '向量化', icon: 'fa-regular fa-bolt' },
+        { id: 'chunk', label: 'Chunk', icon: 'fa-regular fa-bolt' },
+        { id: 'embedding', label: 'Embedding', icon: 'fa-regular fa-layer-group' },
         { id: 'rename', label: '重命名', icon: 'fa-regular fa-pen' },
         { id: 'divider', label: '', divider: true },
         { id: 'delete', label: '删除', icon: 'fa-regular fa-trash', danger: true },
@@ -74,8 +77,11 @@ export function FileIconItem({
       case 'open':
         onDoubleClick?.(file);
         break;
-      case 'vectorize':
-        onVectorize?.(file);
+      case 'chunk':
+        onChunk?.(file);
+        break;
+      case 'embedding':
+        onEmbedding?.(file);
         break;
       case 'rename':
         onStartEdit?.(file);

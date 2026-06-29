@@ -24,6 +24,12 @@ export interface FileNode {
   createdAt?: string;          // 创建时间
   modifiedAt?: string;         // 修改时间
   children?: FileNode[];       // 子节点 (文件夹才有)
+
+  // 文档元数据（后端返回的扩展字段）
+  kb_id?: string;              // 所属知识库 ID
+  doc_id?: string;             // 文档 ID（与 id 可能不同）
+  status?: string;             // 文档状态 (uploaded/chunked/embedded/error)
+  fileHash?: string;           // 文件哈希
 }
 
 /**

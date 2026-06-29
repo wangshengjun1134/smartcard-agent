@@ -55,6 +55,10 @@ export function useFileStructure(): UseFileStructureReturn {
             mimeType: doc.mime_type,
             createdAt: doc.createdAt,
             modifiedAt: doc.updatedAt,
+            kb_id: doc.kb_id,           // 知识库 ID
+            doc_id: doc.id,             // 文档 ID
+            status: doc.status,         // 文档状态
+            fileHash: doc.file_hash,    // 文件哈希
             _folderId: doc.folder_id || null, // 用于挂载到对应文件夹
           })) as (FileNode & { _folderId?: string | null })[];
 

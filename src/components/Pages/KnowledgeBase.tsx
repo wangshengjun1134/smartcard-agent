@@ -5,6 +5,7 @@ import { useFileStructure } from '../../hooks/useFileStructure';
 import { useFileUpload } from '../../hooks/useFileUpload';
 import { useFileOperations } from '../../hooks/useFileOperations';
 import { findFolderByPath, buildBreadcrumb, getParentPath, getFolderNames, generateUniqueFolderName } from '../../utils/fileUtils';
+import { getApiUrl } from '../../config/api';
 import { KnowledgeBaseHeader } from '../KnowledgeBase/KnowledgeBaseHeader';
 import { FileGridView } from '../KnowledgeBase/FileGridView';
 import { FileTreeView } from '../KnowledgeBase/FileTreeView';
@@ -224,13 +225,76 @@ export function KnowledgeBase() {
     }
   }, [deleteFile, selectedFile, refresh]);
 
-  // 向量化文件
-  const handleVectorize = useCallback(async (file: FileNode) => {
+  // Chunk 文件（解析 + 分片 + 自动向量化）
+  const handleChunk = useCallback(async (file: FileNode) => {
     if (file.isFolder) return;
-    console.log('Vectorizing file:', file.name, file.id);
-    // TODO: 调用后端向量化 API
-    alert(`向量化功能开发中: ${file.name}`);
-  }, []);
+
+    const kbId = file.kb_id || '';
+    const docId = file.doc_id || file.id;
+
+    if (!kbId) {
+      alert('无法确定知识库 ID，请先确认文件信息');
+      return;
+    }
+
+    try {
+      const response = await fetch(getApiUrl('/api/chunks/parse-and-chunk'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          doc_id: docId,
+          kb_id: kbId,
+          auto_embed: true,  // 分片后自动向量化
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      const result = await response.json();
+      alert(`✅ 向量化已提交\n\n分片数: ${result.total_chunks}\n状态: ${result.embedding_status}`);
+      refresh();
+    } catch (err) {
+      console.error('向量化失败:', err);
+      alert(`❌ 向量化失败: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }, [refresh]);
+
+  // Embedding 文件（仅向量化已分片的 chunks）
+  const handleEmbedding = useCallback(async (file: FileNode) => {
+    if (file.isFolder) return;
+
+    const docId = file.doc_id || file.id;
+
+    try {
+      const response = await fetch(getApiUrl('/api/chunks/embed'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          doc_id: docId,
+          batch_size: 50,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
+      const result = await response.json();
+      if (result.total === 0) {
+        alert('ℹ️ 没有待向量化的 chunks\n\n请先进行分片操作');
+      } else {
+        alert(`✅ Embedding 已提交\n\n待处理: ${result.total} 个 chunks`);
+      }
+      refresh();
+    } catch (err) {
+      console.error('Embedding 失败:', err);
+      alert(`❌ Embedding 失败: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }, [refresh]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -316,7 +380,8 @@ export function KnowledgeBase() {
                   onMoveFile={handleMoveFile}
                   onRename={handleRename}
                   onDelete={handleDelete}
-                  onVectorize={handleVectorize}
+                  onChunk={handleChunk}
+                  onEmbedding={handleEmbedding}
                   onStartEdit={handleStartEdit}
                   onCancelEdit={handleCancelEdit}
                   onCreateFolder={handleCreateFolder}
@@ -330,7 +395,8 @@ export function KnowledgeBase() {
                   onFileClick={handleTreeFileClick}
                   onRename={handleRename}
                   onDelete={handleDelete}
-                  onVectorize={handleVectorize}
+                  onChunk={handleChunk}
+                  onEmbedding={handleEmbedding}
                   onStartEdit={handleStartEdit}
                   onCancelEdit={handleCancelEdit}
                   onCreateFolder={handleCreateFolder}
