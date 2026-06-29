@@ -224,3 +224,56 @@ class ProcessingLogService:
             logs.append(self._to_response(record))
 
         return ProcessingLogListResponse(logs=logs, total=total)
+
+    def update_log(
+        self,
+        log_id: str,
+        status: str,
+        details: Optional[dict] = None,
+        finished_at: Optional[str] = None,
+    ) -> Optional[ProcessingLogResponse]:
+        """Update a processing log entry.
+
+        Args:
+            log_id: Log ID.
+            status: New status.
+            details: Optional new details.
+            finished_at: Optional finish timestamp.
+
+        Returns:
+            ProcessingLogResponse or None if not found.
+        """
+        timestamp = self._get_timestamp()
+        conn = get_knowledge_db_connection()
+        cursor = conn.cursor()
+
+        if details is not None:
+            cursor.execute(
+                "UPDATE processing_logs SET status = ?, details = ?, finished_at = ? WHERE id = ?",
+                (status, json.dumps(details), finished_at or timestamp, log_id)
+            )
+        else:
+            cursor.execute(
+                "UPDATE processing_logs SET status = ?, finished_at = ? WHERE id = ?",
+                (status, finished_at or timestamp, log_id)
+            )
+
+        conn.commit()
+        cursor.execute("SELECT * FROM processing_logs WHERE id = ?", (log_id,))
+        row = cursor.fetchone()
+        conn.close()
+
+        if row is None:
+            return None
+
+        record = ProcessingLogRecord(
+            id=row["id"],
+            doc_id=row["doc_id"],
+            action=row["action"],
+            status=row["status"],
+            details=row["details"],
+            started_at=row["started_at"],
+            finished_at=row["finished_at"],
+        )
+
+        return self._to_response(record)

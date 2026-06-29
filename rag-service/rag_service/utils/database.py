@@ -117,6 +117,13 @@ def init_knowledge_database(db_path: Optional[Path] = None) -> None:
             kb_id           TEXT NOT NULL REFERENCES knowledge_bases(id),
             chunk_index     INTEGER NOT NULL,
             content         TEXT NOT NULL,
+
+            -- 章节信息（Docling 分片）
+            heading         TEXT NOT NULL DEFAULT '',
+            heading_level   INTEGER NOT NULL DEFAULT 0,
+            page_start      INTEGER NOT NULL DEFAULT 0,
+            page_end        INTEGER NOT NULL DEFAULT 0,
+
             char_count      INTEGER,
             token_count     INTEGER,
             meta            TEXT,
@@ -127,7 +134,25 @@ def init_knowledge_database(db_path: Optional[Path] = None) -> None:
         )
     """)
 
-    # Create processing_logs table
+    # Migration: add new columns if table exists but columns don't
+    for col_sql in [
+        "ALTER TABLE chunks ADD COLUMN heading TEXT DEFAULT ''",
+        "ALTER TABLE chunks ADD COLUMN heading_level INTEGER DEFAULT 0",
+        "ALTER TABLE chunks ADD COLUMN page_start INTEGER DEFAULT 0",
+        "ALTER TABLE chunks ADD COLUMN page_end INTEGER DEFAULT 0",
+    ]:
+        try:
+            cursor.execute(col_sql)
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+    # Create indexes for chunks
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON chunks(doc_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_kb_id ON chunks(kb_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_embedding_status ON chunks(embedding_status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_heading ON chunks(doc_id, heading)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_page ON chunks(doc_id, page_start, page_end)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_level ON chunks(doc_id, heading_level)")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS processing_logs (
             id          TEXT PRIMARY KEY,

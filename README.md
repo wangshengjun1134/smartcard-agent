@@ -36,19 +36,25 @@ smartcard-agent/
 │   ├── utils/           # 工具函数
 │   ├── main.tsx         # 应用入口
 │   └── App.tsx          # 根组件
-├── python-service/      # Python 知识库服务
-│   ├── src/             # Python 源码
+├── agent-service/       # Agent 服务（智能卡操作）
+│   ├── agent_service/   # Python 源码
 │   │   ├── api/         # API 接口
-│   │   ├── models/      # 数据模型
+│   │   ├── agents/      # Agent 工作流
 │   │   ├── services/    # 业务逻辑
-│   │   ├── utils/       # 工具函数
 │   │   └── main.py      # 服务入口
-│   ├── tests/           # 测试
+│   └── pyproject.toml   # Python 项目配置
+├── rag-service/         # RAG 服务（知识库）
+│   ├── rag_service/     # Python 源码
+│   │   ├── api/         # API 接口
+│   │   ├── services/    # 业务逻辑
+│   │   ├── models/      # 数据模型
+│   │   └── main.py      # 服务入口
 │   └── pyproject.toml   # Python 项目配置
 ├── index.html           # Vite 入口页面
 ├── package.json         # Node.js 依赖配置
 ├── tsconfig.json        # TypeScript 配置
 ├── vite.config.ts       # Vite 配置
+├── .venv/               # 统一 Python 虚拟环境
 └── .env.example         # 环境变量模板
 ```
 
@@ -67,23 +73,30 @@ smartcard-agent/
 # 安装前端依赖
 npm install
 
-# 安装 Python 依赖
-cd python-service
-uv sync  # 或 pip install -e .
+# 安装 Python 依赖（项目根目录统一 .venv）
+python3 -m venv .venv --system-site-packages
+source .venv/bin/activate
+cd agent-service && pip install -e .
+cd ../rag-service && pip install -e .
 ```
 
 ### 开发模式
 
 ```bash
-# 1. 启动 Python 后端服务
-cd python-service
-python3 -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --reload
+# 激活虚拟环境
+source .venv/bin/activate
 
-# 2. 启动 Tauri 桌面应用（前端 + Tauri）
+# 1. 启动 Agent 服务（智能卡操作，端口 8001）
+python -m uvicorn agent_service.main:app --port 8001 --reload
+
+# 2. 启动 RAG 服务（知识库，端口 8002）
+python -m uvicorn rag_service.main:app --port 8002 --reload
+
+# 3. 启动 Tauri 桌面应用（前端 + Tauri）
 npm run tauri:dev
 ```
 
-**启动顺序**：先启动 Python 后端，再启动 Tauri 桌面应用。
+**启动顺序**：先启动 Python 后端服务，再启动 Tauri 桌面应用。
 
 ### 构建
 

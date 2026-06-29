@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from rag_service.api import files, rag, documents, knowledge_bases
+from rag_service.api import files, rag, documents, knowledge_bases, chunks
 from rag_service.utils.database import init_knowledge_database
 from rag_service.config.logging import setup_logging
 
@@ -48,7 +48,13 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:1420",    # Tauri dev server
+        "http://127.0.0.1:1420",    # Tauri dev server (IP)
+        "tauri://localhost",        # Tauri production
+        "http://localhost:5173",    # Vite dev server
+        "http://127.0.0.1:5173",    # Vite dev server (IP)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -58,6 +64,7 @@ app.add_middleware(
 app.include_router(files.router, prefix="/api/files")
 app.include_router(documents.router, prefix="/api/documents")
 app.include_router(knowledge_bases.router, prefix="/api/knowledge-bases")
+app.include_router(chunks.router)  # chunks router has its own prefix
 app.include_router(rag.router, prefix="/api")
 
 
